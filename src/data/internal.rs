@@ -1,10 +1,10 @@
+use std::collections::HashMap;
 use std::io::{Read, Write};
-use std::ops::AddAssign;
 use serde::{Serialize, Deserialize};
 
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct Entries(Vec<Entry>);
+pub struct Entries (Vec<Entry>);
 
 impl std::ops::Deref for Entries {
     type Target = Vec<Entry>;
@@ -19,8 +19,14 @@ impl std::ops::DerefMut for Entries {
     }
 }
 
+impl Default for Entries {
+    fn default() -> Self {
+        Self(Vec::new())
+    }
+}
+
 impl Entries {
-    const MAIN_FILEPATH: &'static str = "./syracuse.bin";
+    const MAIN_FILEPATH: &'static str = "./syracuse.json";
     const BACKUPS_PATH: &'static str = "./backups/";
 
     pub fn load() -> anyhow::Result<Self> {
@@ -29,7 +35,7 @@ impl Entries {
             .read(true)
             .open(Self::MAIN_FILEPATH)?
             .read_to_end(&mut buffer)?;
-        Ok(bincode::deserialize(&buffer)?)
+        Ok(serde_json::from_slice(&buffer)?)
     }
 
     pub fn save(&self) -> anyhow::Result<()> {
@@ -38,36 +44,145 @@ impl Entries {
             .truncate(true)
             .create(true)
             .open(Self::MAIN_FILEPATH)?
-            .write_all(&bincode::serialize(&self)?)?)
+            .write_all(&serde_json::to_vec_pretty(&self)?)?)
     }
 
     pub fn backup(&self) -> anyhow::Result<()> {
         let timestamp = time::OffsetDateTime::now_utc().unix_timestamp();
-        let filepath: String = format!("{}syracuse-backup-{}.bin", Self::BACKUPS_PATH, timestamp);
+        let filepath: String = format!("{}syracuse-backup-{}.json", Self::BACKUPS_PATH, timestamp);
         Ok(std::fs::OpenOptions::new()
             .write(true)
             .truncate(true)
             .create(true)
             .open(&filepath)?
-            .write_all(&bincode::serialize(&self)?)?)
+            .write_all(&serde_json::to_vec(&self)?)?)
     }
 
+    pub fn search(&self, search_key: &str, threshold: f64) -> Vec<&Entry> {
+        let search_key = search_key.to_uppercase();
+        self.iter()
+            .flat_map(|entry| {
+                // returns the highest score found within the entry's names
+                let max_score = entry.names.iter()
+                    .map(|string| {
+                        Entry::get_score(&search_key, string)
+                    })
+                    .fold(0.0, |max, x| {
+                        if x > max {x} else {max}
+                    });
+                if max_score >= threshold {
+                    Some(entry)
+                } else {
+                    None
+                }
+            })
+            .collect()
+    }
 }
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Entry {
+    /// an entry can have multiple names
     names: Vec<String>,
-    blocs: Vec<Bloc>
+    /// keeps track of time spent when an entry is "active"
+    blocs: Blocs
 }
+
+impl Entry {
+    pub fn new(names: Vec<String>, blocs: Blocs) -> Self {
+        Self { names, blocs }
+    }
+    
+    pub fn is_name(&self, other_name: &String) -> bool {
+        self.names.contains(other_name)
+    }
+
+    pub(self) fn get_score(search_key: &str, string: &str) -> f64 {
+        search_key
+            .chars()
+            .zip(string.chars())
+            .map(|(key, s)| {
+                if key == s {
+                    1_u8
+                } else {
+                    0_u8
+                }
+            })
+            .fold(0_u8, |acc, x| {acc + x})
+        as f64 * (1.0 / search_key.len() as f64)
+    }
+}
+
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct Bloc {
-    date: time::Date,
-    duration: time::Duration,
+pub struct Blocs (HashMap<time::Date, time::Duration>);
+
+impl std::ops::Deref for Blocs {
+    type Target = HashMap<time::Date, time::Duration>;
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
 }
 
-impl Bloc {
-    fn update_duration(&mut self, other: time::Duration) {
-        self.duration.add_assign(other)
+impl std::ops::DerefMut for Blocs {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
+
+impl Default for Blocs {
+    fn default() -> Self {
+        Self(HashMap::new())
+    }
+}
+
+
+#[cfg(test)]
+mod test {
+    use super::{Blocs, Entries, Entry};
+
+    #[test]
+    fn get_score_1() {
+        let search_key = "TEST";
+        let string = "TESTING";
+
+        assert_eq!(Entry::get_score(search_key, string), 1.0)
+    }
+    #[test]
+    fn get_score_2() {
+        let search_key = "TESTA";
+        let string = "TESTING";
+
+        assert_eq!(Entry::get_score(search_key, string), 0.8)
+    }
+    #[test]
+    fn search_1() {
+        let search_key = "TEST";
+        let threshold: f64 = 0.55;
+        let mut entries = Entries::default();
+        entries.push(Entry::new(vec!["TESA".to_string(), "ABC".to_string()], Blocs::default()));
+        entries.push(Entry::new(vec!["TEAB".to_string(), "ABST".to_string()], Blocs::default()));
+    
+        assert_eq!(entries.search(search_key, threshold)[0].names[0].as_str(), "TESA")
+    }
+    #[test]
+    fn search_2() {
+        let search_key = "TEST";
+        let threshold: f64 = 0.50;
+        let mut entries = Entries::default();
+        entries.push(Entry::new(vec!["TESA".to_string(), "ABC".to_string()], Blocs::default()));
+        entries.push(Entry::new(vec!["TEAB".to_string(), "ABST".to_string()], Blocs::default()));
+    
+        assert_eq!(entries.search(search_key, threshold)[1].names[0].as_str(), "TEAB")
+    }
+    #[test]
+    fn search_3() {
+        let search_key = "TEST";
+        let threshold: f64 = 0.750001;
+        let mut entries = Entries::default();
+        entries.push(Entry::new(vec!["TESA".to_string(), "ABC".to_string()], Blocs::default()));
+        entries.push(Entry::new(vec!["TEAB".to_string(), "ABST".to_string()], Blocs::default()));
+    
+        assert_eq!(entries.search(search_key, threshold).len(), 0)
     }
 }
