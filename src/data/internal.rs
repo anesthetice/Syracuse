@@ -80,12 +80,24 @@ impl Entries {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, PartialEq, Serialize, Deserialize)]
 pub struct Entry {
     /// an entry can have multiple names
-    names: Vec<String>,
+    pub names: Vec<String>,
     /// keeps track of time spent when an entry is "active"
-    blocs: Blocs
+    pub blocs: Blocs
+}
+
+impl std::fmt::Display for Entry {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "[{}]", self.names.iter().enumerate().fold(String::new(), |acc, (idx, slice)| {
+            if self.names.len() != idx+1 {
+                acc + slice + ", "
+            } else {
+                acc + slice
+            }
+        }))
+    }
 }
 
 impl Entry {
@@ -114,7 +126,7 @@ impl Entry {
 }
 
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, PartialEq, Serialize, Deserialize)]
 pub struct Blocs (HashMap<time::Date, time::Duration>);
 
 impl std::ops::Deref for Blocs {
@@ -127,6 +139,21 @@ impl std::ops::Deref for Blocs {
 impl std::ops::DerefMut for Blocs {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.0
+    }
+}
+
+impl std::fmt::Display for Blocs {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "[{}]", self.iter().enumerate().fold(String::new(), |acc, (idx, x)| {
+            if self.len() != idx + 1 {
+                acc + &format!("{:0>2}/{:0>2}/{:0>4}: ", x.0.day(), x.0.month() as u8, x.0.year())
+                    + &format!("{}", x.1.as_seconds_f64())
+                    + ","
+            } else {
+                acc + &format!("{:0>2}/{:0>2}/{:0>4}: ", x.0.day(), x.0.month() as u8, x.0.year())
+                + &format!("{}", x.1.as_seconds_f64())
+            }
+        }))
     }
 }
 
