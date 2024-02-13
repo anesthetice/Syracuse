@@ -1,13 +1,19 @@
 mod cli;
 mod data;
+use std::{io::Write, time::{Duration, Instant}};
+
 use data::internal::{Blocs, Entries, Entry};
 mod error;
 use error::Error;
 mod utils;
 
-use crossterm::style::Stylize;
+use crossterm::{event, execute, style::Stylize, terminal::{disable_raw_mode, enable_raw_mode, Clear, EnterAlternateScreen, LeaveAlternateScreen}};
 
 use crate::utils::user_choice;
+
+const DEFAULT_THRESHOLD: f64 = 0.75;
+const LOCAL_OFFSET: [i8; 3] = [1, 0, 0];
+const SAVE_TIMER: f64 = 10.0;
 
 fn main() -> anyhow::Result<()> {
     #[cfg(not(debug_assertions))]
@@ -37,6 +43,18 @@ fn main() -> anyhow::Result<()> {
             std::fs::create_dir(backups_path).map_err(|err| {error!("failed to create the ./backups directory"); err})?;
         }
     }
+
+    let date: time::Date = {
+        match time::UtcOffset::from_hms(LOCAL_OFFSET[0], LOCAL_OFFSET[1], LOCAL_OFFSET[2]) {
+            Ok(offset) => {
+                time::OffsetDateTime::now_utc().replace_offset(offset).date()
+            },
+            Err(err) => {
+                warn!("failed to create UtcOffset with the provided LOCAL_OFFSET\n{err}");
+                time::OffsetDateTime::now_utc().date()
+            }
+        }
+    };
     
     let mut entries = Entries::load()
         .map_err(|err| {error!("failed to load entries"); err})?;
@@ -62,10 +80,10 @@ fn main() -> anyhow::Result<()> {
             }
             entries.push(Entry::new(names, Blocs::default()));
             entries.save().map_err(|err| {error!("failed to save entries"); err})?;
-            info!("successfully added a new entry")
+            info!("successfully added a new entry");
         }
         else {
-            warn!("invalid add subcommand usage, could not find a valid name")
+            warn!("invalid add subcommand usage, could not find a valid name");
         }
     }
 
@@ -88,11 +106,47 @@ fn main() -> anyhow::Result<()> {
     if let Some(argmatches) = matches.subcommand_matches("remove") {
         if let Some(mat) = argmatches.get_one::<String>("entry") {
             let name = mat.to_uppercase();
-            if let Some(entry_to_remove) = user_choice(&entries.search(&name, 0.50)) {
+            if let Some(entry_to_remove) = user_choice(&entries.search(&name, DEFAULT_THRESHOLD)) {
                 let idx_to_remove = entries.iter().position(|entry| {entry == *entry_to_remove}).unwrap();
                 let removed_entry = entries.remove(idx_to_remove);
                 entries.save().map_err(|err| {error!("failed to save entries"); err})?;
                 info!("removed entry: {}", removed_entry);
+            }
+        }
+    }
+
+    if let Some(argmatches) = matches.subcommand_matches("start") {
+        if let Some(mat) = argmatches.get_one::<String>("entry") {
+            let name = mat.to_uppercase();
+            if let Some(entry) = user_choice(&entries.search(&name, DEFAULT_THRESHOLD)) {
+                let entry_idx = entries.iter().position(|entry| {entry.names == entry.names}).unwrap();
+                let start = Instant::now();
+                let mut instant = start;
+                let mut save_instant = start;
+                let mut stdout = std::io::stdout();
+                enable_raw_mode()?;
+                loop {
+                    print!("\r{:.2}         ", instant.duration_since(start).as_secs_f64());
+                    stdout.flush();
+                    if event::poll(std::time::Duration::from_secs_f64(0.1)).unwrap() {
+                        if let event::Event::Key(key) = event::read()? {
+                            if key.kind == event::KeyEventKind::Press {
+                                if key.code == event::KeyCode::Char('q') {
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                    let new_instant = Instant::now();
+                    entries.get_mut(entry_idx).unwrap().update_bloc(&date, new_instant.duration_since(instant));
+                    instant = new_instant;
+                    if instant.duration_since(save_instant) > Duration::from_secs_f64(SAVE_TIMER) {
+                        entries.save().map_err(|err| {error!("failed to save progress"); err})?;
+                        save_instant = new_instant;
+                    } 
+                }
+                let _ = disable_raw_mode();
+                entries.save().map_err(|err| {error!("failed to save progress"); err})?;
             }
         }
     }

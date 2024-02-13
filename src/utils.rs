@@ -23,9 +23,10 @@ macro_rules! error {
 
 pub fn user_choice<T>(choices: &[T]) -> Option<&T>
 where T: std::fmt::Display
-{
+{   
+    println!("{}", "0) CANCEL".grey());
     for (idx, choice) in choices.iter().enumerate() {
-        println!("{idx}) {choice}")
+        println!("{}) {choice}", idx+1)
     }
     let mut user_input: String = String::new();
     if let Err(err) = std::io::stdin().read_line(&mut user_input) {
@@ -35,7 +36,10 @@ where T: std::fmt::Display
 
     match user_input.trim().parse::<usize>() {
         Ok(idx) => {
-            if idx < choices.len() {Some(&choices[idx])}
+            if idx == 0 {
+                return None;
+            }
+            if idx-1 < choices.len() {Some(&choices[idx-1])}
             else {warn!("invalid input, out of bounds"); None}
         },
         Err(err) => {

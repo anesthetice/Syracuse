@@ -1,9 +1,12 @@
 use std::collections::HashMap;
 use std::io::{Read, Write};
+use std::ops::AddAssign;
+use std::time::Duration;
 use serde::{Serialize, Deserialize};
+use serde_with::serde_as;
 
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Default, Serialize, Deserialize)]
 pub struct Entries (Vec<Entry>);
 
 impl std::ops::Deref for Entries {
@@ -16,12 +19,6 @@ impl std::ops::Deref for Entries {
 impl std::ops::DerefMut for Entries {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.0
-    }
-}
-
-impl Default for Entries {
-    fn default() -> Self {
-        Self(Vec::new())
     }
 }
 
@@ -39,15 +36,17 @@ impl Entries {
     }
 
     pub fn save(&self) -> anyhow::Result<()> {
+        let data = serde_json::to_vec_pretty(&self)?;
         Ok(std::fs::OpenOptions::new()
             .write(true)
             .truncate(true)
             .create(true)
             .open(Self::MAIN_FILEPATH)?
-            .write_all(&serde_json::to_vec_pretty(&self)?)?)
+            .write_all(&data)?)
     }
 
     pub fn backup(&self) -> anyhow::Result<()> {
+        let data = serde_json::to_vec_pretty(&self)?;
         let timestamp = time::OffsetDateTime::now_utc().unix_timestamp();
         let filepath: String = format!("{}syracuse-backup-{}.json", Self::BACKUPS_PATH, timestamp);
         Ok(std::fs::OpenOptions::new()
@@ -55,7 +54,7 @@ impl Entries {
             .truncate(true)
             .create(true)
             .open(&filepath)?
-            .write_all(&serde_json::to_vec(&self)?)?)
+            .write_all(&data)?)
     }
 
     pub fn search(&self, search_key: &str, threshold: f64) -> Vec<&Entry> {
@@ -80,7 +79,7 @@ impl Entries {
     }
 }
 
-#[derive(Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct Entry {
     /// an entry can have multiple names
     pub names: Vec<String>,
@@ -109,6 +108,14 @@ impl Entry {
         self.names.contains(other_name)
     }
 
+    pub fn update_bloc(&mut self, date: &time::Date, additional_duration: Duration) {
+        if let Some(duration) = self.blocs.get_mut(date) {
+            duration.add_assign(additional_duration);
+        } else {
+            self.blocs.insert(date.to_owned(), additional_duration);
+        }
+    }
+
     pub(self) fn get_score(search_key: &str, string: &str) -> f64 {
         search_key
             .chars()
@@ -125,12 +132,15 @@ impl Entry {
     }
 }
 
-
-#[derive(Debug, PartialEq, Serialize, Deserialize)]
-pub struct Blocs (HashMap<time::Date, time::Duration>);
+#[serde_as]
+#[derive(Debug, Default, PartialEq, Serialize, Deserialize)]
+pub struct Blocs (
+    #[serde_as(as = "Vec<(_, _)>")]
+    HashMap<time::Date, Duration>
+);
 
 impl std::ops::Deref for Blocs {
-    type Target = HashMap<time::Date, time::Duration>;
+    type Target = HashMap<time::Date, Duration>;
     fn deref(&self) -> &Self::Target {
         &self.0
     }
@@ -147,22 +157,15 @@ impl std::fmt::Display for Blocs {
         write!(f, "[{}]", self.iter().enumerate().fold(String::new(), |acc, (idx, x)| {
             if self.len() != idx + 1 {
                 acc + &format!("{:0>2}/{:0>2}/{:0>4}: ", x.0.day(), x.0.month() as u8, x.0.year())
-                    + &format!("{}", x.1.as_seconds_f64())
+                    + &format!("{}", x.1.as_secs_f64())
                     + ","
             } else {
                 acc + &format!("{:0>2}/{:0>2}/{:0>4}: ", x.0.day(), x.0.month() as u8, x.0.year())
-                + &format!("{}", x.1.as_seconds_f64())
+                + &format!("{}", x.1.as_secs_f64())
             }
         }))
     }
 }
-
-impl Default for Blocs {
-    fn default() -> Self {
-        Self(HashMap::new())
-    }
-}
-
 
 #[cfg(test)]
 mod test {
