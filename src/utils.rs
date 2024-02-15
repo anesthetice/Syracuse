@@ -113,28 +113,6 @@ where T: std::fmt::Display
             None
         }
     }
-
-    /*
-    let mut user_input: String = String::new();
-    if let Err(err) = std::io::stdin().read_line(&mut user_input) {
-        warn!("failed to read an input from the user\n{}", err);
-        return None;
-    }
-
-    match user_input.trim().parse::<usize>() {
-        Ok(idx) => {
-            if idx == 0 {
-                return None;
-            }
-            if idx-1 < choices.len() {Some(&choices[idx-1])}
-            else {warn!("invalid input, out of bounds"); None}
-        },
-        Err(err) => {
-            warn!("invalid input, could not be parsed to usize\n{}", err);
-            None
-        }
-    }
-    */
 }
 
 /// older_than: seconds
