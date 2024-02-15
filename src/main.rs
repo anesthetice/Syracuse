@@ -1,20 +1,17 @@
-mod cli;
-mod data;
+use crossterm::{event, style::Stylize, terminal::{disable_raw_mode, enable_raw_mode,}};
 use std::{io::Write, time::{Duration, Instant}};
 
+mod cli;
+mod config;
+use config::Config;
+mod data;
 use data::internal::{Blocs, Entries, Entry};
 mod error;
 use error::Error;
 mod utils;
+use utils::{clean_backups, user_choice};
 
-use crossterm::{event, execute, style::Stylize, terminal::{disable_raw_mode, enable_raw_mode, Clear, EnterAlternateScreen, LeaveAlternateScreen}};
-
-use crate::utils::user_choice;
-
-const DEFAULT_THRESHOLD: f64 = 0.75;
-const LOCAL_OFFSET: [i8; 3] = [1, 0, 0];
-const SAVE_TIMER: f64 = 10.0;
-
+#[allow(mutable_transmutes)]
 fn main() -> anyhow::Result<()> {
     #[cfg(not(debug_assertions))]
     {
@@ -44,8 +41,14 @@ fn main() -> anyhow::Result<()> {
         }
     }
 
+    let config = Config::new();
+    if config.colorful && config.color_palette.len() == 0 {
+        error!("color palette needs at least one color");
+        Err(Error::InvalidConfig)?;
+    }
+
     let date: time::Date = {
-        match time::UtcOffset::from_hms(LOCAL_OFFSET[0], LOCAL_OFFSET[1], LOCAL_OFFSET[2]) {
+        match time::UtcOffset::from_hms(config.local_offset[0], config.local_offset[1], config.local_offset[2]) {
             Ok(offset) => {
                 time::OffsetDateTime::now_utc().replace_offset(offset).date()
             },
@@ -56,6 +59,8 @@ fn main() -> anyhow::Result<()> {
         }
     };
     
+    clean_backups(config.backup_expiration_time).unwrap();
+
     let mut entries = Entries::load()
         .map_err(|err| {error!("failed to load entries"); err})?;
     entries.backup()
@@ -82,32 +87,47 @@ fn main() -> anyhow::Result<()> {
             entries.save().map_err(|err| {error!("failed to save entries"); err})?;
             info!("successfully added a new entry");
         }
-        else {
-            warn!("invalid add subcommand usage, could not find a valid name");
-        }
     }
 
     if let Some(argmatches) = matches.subcommand_matches("list") {
-        match argmatches.get_flag("full") {
-            true => {
-                for entry in entries.iter() {
-                    println!("{}\n{}\n", entry, entry.blocs);
-                }
+        if config.colorful {
+            let mut color_idx: usize = 0;
+            let max_color_idx: usize = config.color_palette.len();
+            for entry in entries.iter() {
+                if color_idx == max_color_idx {color_idx = 0;}
+                let string = {
+                    if argmatches.get_flag("full") {
+                        format!("{}\n{}\n", entry, entry.blocs).with(config.color_palette[color_idx])
+                    }
+                    else {
+                        format!("{}\n", entry).with(config.color_palette[color_idx])
+                    }
+                };
+                println!("{}", string);
+                color_idx += 1;
+            }
+        }
+        else {
+            for entry in entries.iter() {
+                let string = {
+                    if argmatches.get_flag("full") {
+                        format!("{}\n{}\n", entry, entry.blocs)
+                    }
+                    else {
+                        format!("{}\n", entry)
+                    }
+                };
+                println!("{}", string);
+            }
                 
-            },
-            false => {
-                for entry in entries.iter() {
-                    println!("{}\n", entry);
-                }
-            },
         }
     }
 
     if let Some(argmatches) = matches.subcommand_matches("remove") {
         if let Some(mat) = argmatches.get_one::<String>("entry") {
             let name = mat.to_uppercase();
-            if let Some(entry_to_remove) = user_choice(&entries.search(&name, DEFAULT_THRESHOLD)) {
-                let idx_to_remove = entries.iter().position(|entry| {entry == *entry_to_remove}).unwrap();
+            if let Some(entry_to_remove) = user_choice(&entries.search(&name, config.search_threshold), &config) {
+                let idx_to_remove = entries.iter().position(|entry| {entry == entry_to_remove}).unwrap();
                 let removed_entry = entries.remove(idx_to_remove);
                 entries.save().map_err(|err| {error!("failed to save entries"); err})?;
                 info!("removed entry: {}", removed_entry);
@@ -118,8 +138,8 @@ fn main() -> anyhow::Result<()> {
     if let Some(argmatches) = matches.subcommand_matches("start") {
         if let Some(mat) = argmatches.get_one::<String>("entry") {
             let name = mat.to_uppercase();
-            if let Some(entry) = user_choice(&entries.search(&name, DEFAULT_THRESHOLD)) {
-                let entry_idx = entries.iter().position(|entry| {entry.names == entry.names}).unwrap();
+            if let Some(entry) = user_choice(&entries.search(&name, config.search_threshold), &config) {
+                let entry: &mut Entry = unsafe {std::mem::transmute(entry)};
                 let start = Instant::now();
                 let mut instant = start;
                 let mut save_instant = start;
@@ -127,8 +147,8 @@ fn main() -> anyhow::Result<()> {
                 enable_raw_mode()?;
                 loop {
                     print!("\r{:.2}         ", instant.duration_since(start).as_secs_f64());
-                    stdout.flush();
-                    if event::poll(std::time::Duration::from_secs_f64(0.1)).unwrap() {
+                    let _ = stdout.flush().map_err(|err| {warn!("failed to flush to stdout\n{err}")});
+                    if event::poll(std::time::Duration::from_secs_f64(0.1))? {
                         if let event::Event::Key(key) = event::read()? {
                             if key.kind == event::KeyEventKind::Press {
                                 if key.code == event::KeyCode::Char('q') {
@@ -138,9 +158,9 @@ fn main() -> anyhow::Result<()> {
                         }
                     }
                     let new_instant = Instant::now();
-                    entries.get_mut(entry_idx).unwrap().update_bloc(&date, new_instant.duration_since(instant));
+                    entry.update_bloc(&date, new_instant.duration_since(instant));
                     instant = new_instant;
-                    if instant.duration_since(save_instant) > Duration::from_secs_f64(SAVE_TIMER) {
+                    if instant.duration_since(save_instant) > Duration::from_secs_f64(config.save_period) {
                         entries.save().map_err(|err| {error!("failed to save progress"); err})?;
                         save_instant = new_instant;
                     } 

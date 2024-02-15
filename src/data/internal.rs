@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use std::io::{Read, Write};
 use std::ops::AddAssign;
 use std::time::Duration;
+use itertools::Itertools;
 use serde::{Serialize, Deserialize};
 use serde_with::serde_as;
 
@@ -24,7 +25,7 @@ impl std::ops::DerefMut for Entries {
 
 impl Entries {
     const MAIN_FILEPATH: &'static str = "./syracuse.json";
-    const BACKUPS_PATH: &'static str = "./backups/";
+    pub const BACKUPS_PATH: &'static str = "./backups/";
 
     pub fn load() -> anyhow::Result<Self> {
         let mut buffer: Vec<u8> = Vec::new();
@@ -70,11 +71,13 @@ impl Entries {
                         if x > max {x} else {max}
                     });
                 if max_score >= threshold {
-                    Some(entry)
+                    Some((max_score, entry))
                 } else {
                     None
                 }
             })
+            .sorted_by(|(a, _), (b, _)| {b.partial_cmp(a).unwrap_or(std::cmp::Ordering::Equal)})
+            .map(|(_, entry)| {entry})
             .collect()
     }
 }
