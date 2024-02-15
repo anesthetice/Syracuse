@@ -1,18 +1,30 @@
 use crossterm::{event, style::Stylize, terminal::{disable_raw_mode, enable_raw_mode,}};
 use std::{io::Write, time::{Duration, Instant}};
 
+mod animation;
+use animation::Animation;
 mod cli;
 mod config;
 use config::Config;
 mod data;
-use data::internal::{Blocs, Entries, Entry};
+use data::{export::Export, internal::{Blocs, Entries, Entry}};
 mod error;
 use error::Error;
 mod utils;
 use utils::{clean_backups, user_choice};
 
+use crate::animation::SimpleAnimation;
+
+fn main() {
+    let mut entry = Entry::default();
+    entry.names.push("test".to_string());
+    entry.update_bloc(&time::Date::from_ordinal_date(2023, 363).unwrap(), std::time::Duration::from_secs_f64(3600.0));
+    entry.update_bloc(&time::Date::from_ordinal_date(2023, 364).unwrap(), std::time::Duration::from_secs_f64(2400.0));
+    entry.generate_png(time::Date::from_ordinal_date(2023, 363).unwrap(), time::Date::from_ordinal_date(2024, 5).unwrap()).unwrap();
+}
+
 #[allow(mutable_transmutes)]
-fn main() -> anyhow::Result<()> {
+fn main2() -> anyhow::Result<()> {
     #[cfg(not(debug_assertions))]
     {
         let current_path = std::env::current_dir()
@@ -140,13 +152,18 @@ fn main() -> anyhow::Result<()> {
             let name = mat.to_uppercase();
             if let Some(entry) = user_choice(&entries.search(&name, config.search_threshold), &config) {
                 let entry: &mut Entry = unsafe {std::mem::transmute(entry)};
+                println!("");
+
                 let start = Instant::now();
                 let mut instant = start;
                 let mut save_instant = start;
+
                 let mut stdout = std::io::stdout();
+                let mut frame: usize = 0;
+
                 enable_raw_mode()?;
                 loop {
-                    print!("\r{:.2}         ", instant.duration_since(start).as_secs_f64());
+                    SimpleAnimation::play(&mut stdout, &mut frame, &instant.duration_since(start).as_secs_f64(), None);
                     let _ = stdout.flush().map_err(|err| {warn!("failed to flush to stdout\n{err}")});
                     if event::poll(std::time::Duration::from_secs_f64(0.1))? {
                         if let event::Event::Key(key) = event::read()? {
@@ -170,5 +187,12 @@ fn main() -> anyhow::Result<()> {
             }
         }
     }
+
+    if let Some(argmatches) = matches.subcommand_matches("graph") {
+        if argmatches.get_flag("all") {
+
+        }
+    }
+
     Ok(())
 }

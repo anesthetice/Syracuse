@@ -4,21 +4,21 @@ use crate::{config::Config, data::internal::Entries};
 #[macro_export]
 macro_rules! info {
     ($($args:tt)*) => {
-        println!("[ {} ] {}", "INFO".cyan(), format_args!($($args)*));
+        eprintln!("[ {} ] {}", "INFO".cyan(), format_args!($($args)*));
     };
 }
 
 #[macro_export]
 macro_rules! warn {
     ($($args:tt)*) => {
-        println!("[ {} ] {}", "WARN".yellow(), format_args!($($args)*));
+        eprintln!("[ {} ] {}", "WARN".yellow(), format_args!($($args)*));
     };
 }
 
 #[macro_export]
 macro_rules! error {
     ($($args:tt)*) => {
-        println!("[{}] {}", "ERROR".red(), format_args!($($args)*));
+        eprintln!("[{}] {}", "ERROR".red(), format_args!($($args)*));
     };
 }
 
@@ -49,7 +49,7 @@ where T: std::fmt::Display
                                     let _ = disable_raw_mode().map_err(|err| {warn!("failed to disable raw mode\n{err}")});
                                     break None;
                                 }
-                                event::KeyCode::Char('y') => {
+                                event::KeyCode::Char('y') | event::KeyCode::Enter => {
                                     break Some(choices[0]);
                                 }
                                 _ => {},
@@ -141,4 +141,30 @@ pub fn clean_backups(older_than: u64) -> anyhow::Result<()> {
     }
 
     Ok(())
+}
+
+pub fn expand_dates(start_date: &time::Date, end_date: &time::Date) -> Vec<time::Date> {
+    let mut dates: Vec<time::Date> = Vec::new();
+    if start_date > end_date {return dates;}
+
+    let (end_year, end_ordinal) = end_date.to_ordinal_date();
+    let (mut year, mut ordinal) = start_date.to_ordinal_date();
+
+    while year < end_year {
+        match time::Date::from_ordinal_date(year, ordinal) {
+            Ok(date) => {
+                dates.push(date);
+                ordinal += 1;
+            },
+            Err(..) => {
+                year += 1;
+                ordinal = 1;
+            }
+        }
+    }
+    while ordinal < end_ordinal {
+        dates.push(time::Date::from_ordinal_date(year, ordinal).unwrap());
+        ordinal += 1;
+    }
+    dates
 }

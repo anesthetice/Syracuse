@@ -46,9 +46,26 @@ pub fn cli() -> clap::Command {
             .action(ArgAction::Set)
         );
     
+    let graph_subcommand = Command::new("graph")
+        .about("create a graph")
+        .arg(Arg::new("all")
+            .short('a')
+            .long("all")
+            .exclusive(true)
+            .action(ArgAction::SetTrue)
+        )
+        .arg(Arg::new("single")
+            .exclusive(true)
+            .short('s')
+            .long("single")
+            .required(false)
+            .action(ArgAction::Set)
+        );
+
     command!()
         .subcommand(add_subcommand)
         .subcommand(list_subcommand)
         .subcommand(remove_subcommand)
         .subcommand(start_subcommand)
+        .subcommand(graph_subcommand)
 }

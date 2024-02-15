@@ -133,6 +133,18 @@ impl Entry {
             .fold(0_u8, |acc, x| {acc + x})
         as f64 * (1.0 / search_key.len() as f64)
     }
+
+    pub(super) fn get_points(&self, map: &HashMap<time::Date, usize>) -> Vec<(usize, f64)> {
+        self.blocs.iter()
+            .flat_map(|(date, duration)| {
+                if let Some(x) = map.get(date) {
+                    Some((*x, duration.as_secs_f64() * (1.0/3600.0)))
+                } else {
+                    None
+                }
+            })
+            .collect()
+    }
 }
 
 #[serde_as]
