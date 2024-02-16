@@ -1,6 +1,5 @@
 use clap::{command, Arg, ArgAction, Command};
 
-
 pub fn cli() -> clap::Command {
     let add_subcommand = Command::new("add")
         .alias("new")
@@ -10,58 +9,67 @@ pub fn cli() -> clap::Command {
                 .index(1)
                 .num_args(1..10)
                 .required(true)
-                .help("add a new entry to syracuse")
+                .help("entry to add")
                 .long_help("")
                 .action(ArgAction::Set)
             );
-    
+
     let list_subcommand = Command::new("list")
-        .alias("show")
-        .about("displays all entries")
-        .arg(Arg::new("full")
-            .short('f')
-            .long("full")
-            .num_args(0)
-            .required(false)
-            .help("also displays the data contained by each entry")
-            .action(ArgAction::SetTrue)
+        .aliases(["view", "display", "show"])
+        .about("display all entries")
+        .arg(
+            Arg::new("full")
+                .short('f')
+                .short_alias('a')
+                .long("full")
+                .alias("all")
+                .num_args(0)
+                .required(false)
+                .help("also displays the data contained by each entry")
+                .action(ArgAction::SetTrue),
         );
-    
+
     let remove_subcommand = Command::new("remove")
-        .alias("delete")
-        .about("deletes an entry")
-        .arg(Arg::new("entry")
-            .index(1)
-            .required(true)
-            .help("entry to remove")
-            .action(ArgAction::Set)
+        .aliases(["delete", "del"])
+        .about("remove an entry")
+        .arg(
+            Arg::new("entry")
+                .index(1)
+                .required(true)
+                .help("entry to remove")
+                .action(ArgAction::Set),
         );
 
     let start_subcommand = Command::new("start")
-        .alias("go")
+        .aliases(["s", "r", "run", "go", "launch"])
         .about("starts the stopwatch for the given entry")
-        .arg(Arg::new("entry")
-            .index(1)
-            .required(true)
-            .help("entry to start")
-            .action(ArgAction::Set)
+        .arg(
+            Arg::new("entry")
+                .index(1)
+                .required(true)
+                .help("entry to start")
+                .action(ArgAction::Set),
         );
-    
+
     let graph_subcommand = Command::new("graph")
         .alias("export")
         .about("create a graph")
-        .arg(Arg::new("all")
-            .short('a')
-            .long("all")
-            .exclusive(true)
-            .action(ArgAction::SetTrue)
+        .arg(
+            Arg::new("all")
+                .short('a')
+                .short('f')
+                .long("all")
+                .alias("full")
+                .exclusive(true)
+                .action(ArgAction::SetTrue),
         )
-        .arg(Arg::new("single")
-            .exclusive(true)
-            .short('s')
-            .long("single")
-            .required(false)
-            .action(ArgAction::Set)
+        .arg(
+            Arg::new("single")
+                .exclusive(true)
+                .short('s')
+                .long("single")
+                .required(false)
+                .action(ArgAction::Set),
         );
 
     command!()

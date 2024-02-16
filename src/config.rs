@@ -1,7 +1,8 @@
-use crate::{info, warn};
-use crossterm::style::{Color, Stylize};
-use serde::{Serialize, Deserialize};
+use crossterm::style::Stylize;
+use serde::{Deserialize, Serialize};
 use std::io::{Read, Write};
+
+use crate::{data::internal::UniColor, warn};
 
 #[derive(Clone, Serialize, Deserialize)]
 pub struct Config {
@@ -10,9 +11,9 @@ pub struct Config {
     pub backup_expiration_time: u64,
     pub save_period: f64,
     pub colorful: bool,
-    pub color_green: Color,
-    pub color_red: Color,
-    pub color_palette: Vec<Color>,
+    pub color_green: UniColor,
+    pub color_red: UniColor,
+    pub color_palette: Vec<UniColor>,
     pub graph_specific_end_date: Option<time::Date>,
     pub graph_num_of_days_back: u16,
 }
@@ -25,19 +26,26 @@ impl Default for Config {
             backup_expiration_time: 172800,
             save_period: 15.0,
             colorful: true,
-            color_green: Color::Rgb { r: 166, g: 209, b: 137 },
-            color_red: Color::Rgb { r: 231, g: 130, b: 132 },
+            color_green: UniColor::new(0, 128, 0),
+            color_red: UniColor::new(128, 0, 0),
             color_palette: vec![
-                Color::Rgb { r: 238, g: 190, b: 190 },
-                Color::Rgb { r: 202, g: 158, b: 230 },
-                Color::Rgb { r: 234, g: 153, b: 156 },
-                Color::Rgb { r: 229, g: 200, b: 144 },
-                Color::Rgb { r: 129, g: 200, b: 190 },
-                Color::Rgb { r: 133, g: 193, b: 220 },
-                Color::Rgb { r: 186, g: 187, b: 241 },
+                UniColor::new(242, 213, 207),
+                UniColor::new(238, 190, 190),
+                UniColor::new(244, 184, 228),
+                UniColor::new(202, 158, 230),
+                UniColor::new(231, 130, 132),
+                UniColor::new(234, 153, 156),
+                UniColor::new(239, 159, 118),
+                UniColor::new(229, 200, 144),
+                UniColor::new(166, 209, 137),
+                UniColor::new(129, 200, 190),
+                UniColor::new(153, 209, 219),
+                UniColor::new(133, 193, 220),
+                UniColor::new(140, 170, 238),
+                UniColor::new(186, 187, 241),
             ],
             graph_specific_end_date: None,
-            graph_num_of_days_back: 14,
+            graph_num_of_days_back: 13,
         }
     }
 }

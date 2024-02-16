@@ -1,4 +1,3 @@
-
 #[derive(Debug)]
 pub enum Error {
     Initialization,
@@ -15,15 +14,9 @@ impl core::fmt::Display for Error {
 impl std::error::Error for Error {
     fn description(&self) -> &str {
         match self {
-            Self::Initialization => {
-                "failed to initialize the application"
-            },
-            Self::InvalidConfig => {
-                "invalid configuration"
-            }
-            Self::InvalidInput => {
-                "invalid input"
-            }
+            Self::Initialization => "failed to initialize the application",
+            Self::InvalidConfig => "invalid configuration",
+            Self::InvalidInput => "invalid input",
         }
     }
 }

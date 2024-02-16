@@ -1,14 +1,15 @@
-use std::collections::HashMap;
-use std::io::{Read, Write};
-use std::ops::AddAssign;
-use std::time::Duration;
 use itertools::Itertools;
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 use serde_with::serde_as;
-
+use std::{
+    collections::HashMap,
+    io::{Read, Write},
+    ops::AddAssign,
+    time::Duration,
+};
 
 #[derive(Debug, Default, Serialize, Deserialize)]
-pub struct Entries (Vec<Entry>);
+pub struct Entries(Vec<Entry>);
 
 impl std::ops::Deref for Entries {
     type Target = Vec<Entry>;
@@ -54,7 +55,7 @@ impl Entries {
             .write(true)
             .truncate(true)
             .create(true)
-            .open(&filepath)?
+            .open(filepath)?
             .write_all(&data)?)
     }
 
@@ -63,21 +64,19 @@ impl Entries {
         self.iter()
             .flat_map(|entry| {
                 // returns the highest score found within the entry's names
-                let max_score = entry.names.iter()
-                    .map(|string| {
-                        Entry::get_score(&search_key, string)
-                    })
-                    .fold(0.0, |max, x| {
-                        if x > max {x} else {max}
-                    });
+                let max_score = entry
+                    .names
+                    .iter()
+                    .map(|string| Entry::get_score(&search_key, string))
+                    .fold(0.0, |max, x| if x > max { x } else { max });
                 if max_score >= threshold {
                     Some((max_score, entry))
                 } else {
                     None
                 }
             })
-            .sorted_by(|(a, _), (b, _)| {b.partial_cmp(a).unwrap_or(std::cmp::Ordering::Equal)})
-            .map(|(_, entry)| {entry})
+            .sorted_by(|(a, _), (b, _)| b.partial_cmp(a).unwrap_or(std::cmp::Ordering::Equal))
+            .map(|(_, entry)| entry)
             .collect()
     }
 }
@@ -87,18 +86,25 @@ pub struct Entry {
     /// an entry can have multiple names
     pub names: Vec<String>,
     /// keeps track of time spent when an entry is "active"
-    pub blocs: Blocs
+    pub blocs: Blocs,
 }
 
 impl std::fmt::Display for Entry {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "[{}]", self.names.iter().enumerate().fold(String::new(), |acc, (idx, slice)| {
-            if self.names.len() != idx+1 {
-                acc + slice + ", "
-            } else {
-                acc + slice
-            }
-        }))
+        write!(
+            f,
+            "[{}]",
+            self.names
+                .iter()
+                .enumerate()
+                .fold(String::new(), |acc, (idx, slice)| {
+                    if self.names.len() != idx + 1 {
+                        acc + slice + ", "
+                    } else {
+                        acc + slice
+                    }
+                })
+        )
     }
 }
 
@@ -106,7 +112,7 @@ impl Entry {
     pub fn new(names: Vec<String>, blocs: Blocs) -> Self {
         Self { names, blocs }
     }
-    
+
     pub fn is_name(&self, other_name: &String) -> bool {
         self.names.contains(other_name)
     }
@@ -123,25 +129,17 @@ impl Entry {
         search_key
             .chars()
             .zip(string.chars())
-            .map(|(key, s)| {
-                if key == s {
-                    1_u8
-                } else {
-                    0_u8
-                }
-            })
-            .fold(0_u8, |acc, x| {acc + x})
-        as f64 * (1.0 / search_key.len() as f64)
+            .map(|(key, s)| if key == s { 1_u8 } else { 0_u8 })
+            .sum::<u8>() as f64
+            * (1.0 / search_key.len() as f64)
     }
 
     pub(super) fn get_points(&self, map: &HashMap<time::Date, usize>) -> Vec<(usize, f64)> {
-        self.blocs.iter()
+        self.blocs
+            .iter()
             .flat_map(|(date, duration)| {
-                if let Some(x) = map.get(date) {
-                    Some((*x, duration.as_secs_f64() * (1.0/3600.0)))
-                } else {
-                    None
-                }
+                map.get(date)
+                    .map(|x| (*x, duration.as_secs_f64() * (1.0 / 3600.0)))
             })
             .collect()
     }
@@ -149,10 +147,7 @@ impl Entry {
 
 #[serde_as]
 #[derive(Debug, Default, PartialEq, Serialize, Deserialize)]
-pub struct Blocs (
-    #[serde_as(as = "Vec<(_, _)>")]
-    HashMap<time::Date, Duration>
-);
+pub struct Blocs(#[serde_as(as = "Vec<(_, _)>")] HashMap<time::Date, Duration>);
 
 impl std::ops::Deref for Blocs {
     type Target = HashMap<time::Date, Duration>;
@@ -169,16 +164,30 @@ impl std::ops::DerefMut for Blocs {
 
 impl std::fmt::Display for Blocs {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "[{}]", self.iter().enumerate().fold(String::new(), |acc, (idx, x)| {
-            if self.len() != idx + 1 {
-                acc + &format!("{:0>2}/{:0>2}/{:0>4}: ", x.0.day(), x.0.month() as u8, x.0.year())
-                    + &format!("{}", x.1.as_secs_f64())
-                    + ","
-            } else {
-                acc + &format!("{:0>2}/{:0>2}/{:0>4}: ", x.0.day(), x.0.month() as u8, x.0.year())
-                + &format!("{}", x.1.as_secs_f64())
-            }
-        }))
+        write!(
+            f,
+            "[{}]",
+            self.iter()
+                .enumerate()
+                .fold(String::new(), |acc, (idx, x)| {
+                    if self.len() != idx + 1 {
+                        acc + &format!(
+                            "{:0>2}/{:0>2}/{:0>4}: ",
+                            x.0.day(),
+                            x.0.month() as u8,
+                            x.0.year()
+                        ) + &format!("{}", x.1.as_secs_f64())
+                            + ","
+                    } else {
+                        acc + &format!(
+                            "{:0>2}/{:0>2}/{:0>4}: ",
+                            x.0.day(),
+                            x.0.month() as u8,
+                            x.0.year()
+                        ) + &format!("{}", x.1.as_secs_f64())
+                    }
+                })
+        )
     }
 }
 
@@ -205,29 +214,106 @@ mod test {
         let search_key = "TEST";
         let threshold: f64 = 0.55;
         let mut entries = Entries::default();
-        entries.push(Entry::new(vec!["TESA".to_string(), "ABC".to_string()], Blocs::default()));
-        entries.push(Entry::new(vec!["TEAB".to_string(), "ABST".to_string()], Blocs::default()));
-    
-        assert_eq!(entries.search(search_key, threshold)[0].names[0].as_str(), "TESA")
+        entries.push(Entry::new(
+            vec!["TESA".to_string(), "ABC".to_string()],
+            Blocs::default(),
+        ));
+        entries.push(Entry::new(
+            vec!["TEAB".to_string(), "ABST".to_string()],
+            Blocs::default(),
+        ));
+
+        assert_eq!(
+            entries.search(search_key, threshold)[0].names[0].as_str(),
+            "TESA"
+        )
     }
     #[test]
     fn search_2() {
         let search_key = "TEST";
         let threshold: f64 = 0.50;
         let mut entries = Entries::default();
-        entries.push(Entry::new(vec!["TESA".to_string(), "ABC".to_string()], Blocs::default()));
-        entries.push(Entry::new(vec!["TEAB".to_string(), "ABST".to_string()], Blocs::default()));
-    
-        assert_eq!(entries.search(search_key, threshold)[1].names[0].as_str(), "TEAB")
+        entries.push(Entry::new(
+            vec!["TESA".to_string(), "ABC".to_string()],
+            Blocs::default(),
+        ));
+        entries.push(Entry::new(
+            vec!["TEAB".to_string(), "ABST".to_string()],
+            Blocs::default(),
+        ));
+
+        assert_eq!(
+            entries.search(search_key, threshold)[1].names[0].as_str(),
+            "TEAB"
+        )
     }
     #[test]
     fn search_3() {
         let search_key = "TEST";
         let threshold: f64 = 0.750001;
         let mut entries = Entries::default();
-        entries.push(Entry::new(vec!["TESA".to_string(), "ABC".to_string()], Blocs::default()));
-        entries.push(Entry::new(vec!["TEAB".to_string(), "ABST".to_string()], Blocs::default()));
-    
+        entries.push(Entry::new(
+            vec!["TESA".to_string(), "ABC".to_string()],
+            Blocs::default(),
+        ));
+        entries.push(Entry::new(
+            vec!["TEAB".to_string(), "ABST".to_string()],
+            Blocs::default(),
+        ));
+
         assert_eq!(entries.search(search_key, threshold).len(), 0)
+    }
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+pub struct UniColor(u8, u8, u8);
+
+impl UniColor {
+    pub fn new(r: u8, g: u8, b: u8) -> Self {
+        Self(r, g, b)
+    }
+}
+
+impl From<UniColor> for plotters::style::RGBAColor {
+    fn from(value: UniColor) -> Self {
+        Self(value.0, value.1, value.2, 1.0)
+    }
+}
+
+impl From<&UniColor> for plotters::style::RGBAColor {
+    fn from(value: &UniColor) -> Self {
+        Self(value.0, value.1, value.2, 1.0)
+    }
+}
+
+impl From<UniColor> for plotters::style::RGBColor {
+    fn from(value: UniColor) -> Self {
+        Self(value.0, value.1, value.2)
+    }
+}
+
+impl From<&UniColor> for plotters::style::RGBColor {
+    fn from(value: &UniColor) -> Self {
+        Self(value.0, value.1, value.2)
+    }
+}
+
+impl From<UniColor> for crossterm::style::Color {
+    fn from(value: UniColor) -> Self {
+        Self::Rgb {
+            r: value.0,
+            g: value.1,
+            b: value.2,
+        }
+    }
+}
+
+impl From<&UniColor> for crossterm::style::Color {
+    fn from(value: &UniColor) -> Self {
+        Self::Rgb {
+            r: value.0,
+            g: value.1,
+            b: value.2,
+        }
     }
 }
