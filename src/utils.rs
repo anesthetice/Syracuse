@@ -159,7 +159,7 @@ where
                 }
             }
         }
-        10.. => {
+        _ => {
             error!("too many choices, increase the threshold");
             None
         }
