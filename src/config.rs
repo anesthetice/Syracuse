@@ -12,7 +12,9 @@ pub struct Config {
     pub colorful: bool,
     pub color_green: Color,
     pub color_red: Color,
-    pub color_palette: Vec<Color>
+    pub color_palette: Vec<Color>,
+    pub graph_specific_end_date: Option<time::Date>,
+    pub graph_num_of_days_back: u16,
 }
 
 impl Default for Config {
@@ -33,7 +35,9 @@ impl Default for Config {
                 Color::Rgb { r: 129, g: 200, b: 190 },
                 Color::Rgb { r: 133, g: 193, b: 220 },
                 Color::Rgb { r: 186, g: 187, b: 241 },
-            ]
+            ],
+            graph_specific_end_date: None,
+            graph_num_of_days_back: 14,
         }
     }
 }

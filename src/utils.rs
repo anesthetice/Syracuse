@@ -143,28 +143,15 @@ pub fn clean_backups(older_than: u64) -> anyhow::Result<()> {
     Ok(())
 }
 
-pub fn expand_dates(start_date: &time::Date, end_date: &time::Date) -> Vec<time::Date> {
-    let mut dates: Vec<time::Date> = Vec::new();
-    if start_date > end_date {return dates;}
-
-    let (end_year, end_ordinal) = end_date.to_ordinal_date();
-    let (mut year, mut ordinal) = start_date.to_ordinal_date();
-
-    while year < end_year {
-        match time::Date::from_ordinal_date(year, ordinal) {
-            Ok(date) => {
-                dates.push(date);
-                ordinal += 1;
-            },
-            Err(..) => {
-                year += 1;
-                ordinal = 1;
-            }
-        }
+pub fn expand_date_backwards(mut number_of_days_back: u16, end_date: &time::Date) -> Vec<time::Date> {
+    let mut curr_date: time::Date = end_date.clone();
+    let mut dates: Vec<time::Date> = vec![end_date.clone()];
+    while let Some(date) = curr_date.previous_day() {
+        if number_of_days_back == 0 {break}
+        dates.push(date);
+        curr_date = date;
+        number_of_days_back -= 1;
     }
-    while ordinal < end_ordinal {
-        dates.push(time::Date::from_ordinal_date(year, ordinal).unwrap());
-        ordinal += 1;
-    }
+    dates.reverse();
     dates
 }

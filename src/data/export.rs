@@ -7,16 +7,37 @@ use super::internal::{Entries, Entry};
 const COLORS: [RGBColor; 10] = [RED, PINK, MAGENTA, PURPLE, BLUE, CYAN, TEAL, GREEN, YELLOW, ORANGE];
 
 pub trait Export {
-    fn generate_png(&self, start_date: Date, end_date: Date) -> anyhow::Result<()>;
+    fn generate_png(&self, num_of_days_back: u16, end_date: Date) -> anyhow::Result<()>;
+}
+
+macro_rules! draw_triangle_series {
+    ($ctx:expr, $points:expr, $name:expr, $color:expr) => {
+        $ctx.draw_series(
+            $points.into_iter().map(|point| TriangleMarker::new(point, 10, $color))
+        )?
+        .label($name)
+        .legend(|(x, y)| TriangleMarker::new((x, y), 10, $color));
+    };
+}
+
+macro_rules! draw_circle_series {
+    ($ctx:expr, $points:expr, $name:expr, $color:expr) => {
+        $ctx.draw_series(
+            $points.into_iter().map(|point| TriangleMarker::new(point, 10, $color))
+        )?
+        .label($name)
+        .legend(|(x, y)| Circle::new((x, y), 10, $color));
+    };
 }
 
 impl Export for Entries {
-    fn generate_png(&self, start_date: Date, end_date: Date) -> anyhow::Result<()> {
-        let dates = crate::utils::expand_dates(&start_date, &end_date);
+    fn generate_png(&self, num_of_days_back: u16, end_date: Date) -> anyhow::Result<()> {
+        let dates = crate::utils::expand_date_backwards(num_of_days_back, &end_date);
+        println!("{:?}", dates);
         let dates_to_usize: HashMap<Date, usize> = {
             let mut out = HashMap::new();
             for (idx, date) in dates.clone().into_iter().enumerate() {
-                out.insert(date, idx+1);
+                out.insert(date, idx);
             }
             out
         };
@@ -40,154 +61,77 @@ impl Export for Entries {
             (entry.names.get(0).unwrap_or(&String::default()).to_owned(), entry.get_points(&dates_to_usize))}
         ).collect();
 
+        println!("{:?}", &points_list);
 
         let mut color_idx: usize = 0; let max_color_idx = COLORS.len(); let mut switch: u8 = 0;
+
         while let Some((name, points)) = points_list.pop() {
             if color_idx == max_color_idx {
                 color_idx = 0;
                 switch += 1;
             }
+            // as "nice" as I can make it, plotters still needs a lot of work...
             if switch == 0 {
                 if color_idx == 0 {
-                    ctx.draw_series(
-                        points.into_iter().map(|point| {TriangleMarker::new(point, 10, RED)})
-                    )?
-                    .label(&name)
-                    .legend(|(x,y)| TriangleMarker::new((x, y), 10, RED));
+                    draw_triangle_series!(ctx, points, name, RED);
                 }
                 else if color_idx == 1 {
-                    ctx.draw_series(
-                        points.into_iter().map(|point| {TriangleMarker::new(point, 10, PINK)})
-                    )?
-                    .label(&name)
-                    .legend(|(x,y)| TriangleMarker::new((x, y), 10, PINK));
+                    draw_triangle_series!(ctx, points, name, PINK);
                 }
                 else if color_idx == 2 {
-                    ctx.draw_series(
-                        points.into_iter().map(|point| {TriangleMarker::new(point, 10, MAGENTA)})
-                    )?
-                    .label(&name)
-                    .legend(|(x,y)| TriangleMarker::new((x, y), 10, MAGENTA));
+                    draw_triangle_series!(ctx, points, name, MAGENTA);
                 }
                 else if color_idx == 3 {
-                    ctx.draw_series(
-                        points.into_iter().map(|point| {TriangleMarker::new(point, 10, PURPLE)})
-                    )?
-                    .label(&name)
-                    .legend(|(x,y)| TriangleMarker::new((x, y), 10, PURPLE));
+                    draw_triangle_series!(ctx, points, name, PURPLE);
                 }
                 else if color_idx == 4 {
-                    ctx.draw_series(
-                        points.into_iter().map(|point| {TriangleMarker::new(point, 10, BLUE)})
-                    )?
-                    .label(&name)
-                    .legend(|(x,y)| TriangleMarker::new((x, y), 10, BLUE));
+                    draw_triangle_series!(ctx, points, name, BLUE);
                 }
                 else if color_idx == 5 {
-                    ctx.draw_series(
-                        points.into_iter().map(|point| {TriangleMarker::new(point, 10, CYAN)})
-                    )?
-                    .label(&name)
-                    .legend(|(x,y)| TriangleMarker::new((x, y), 10, CYAN));
+                    draw_triangle_series!(ctx, points, name, CYAN);
                 }
                 else if color_idx == 6 {
-                    ctx.draw_series(
-                        points.into_iter().map(|point| {TriangleMarker::new(point, 10, TEAL)})
-                    )?
-                    .label(&name)
-                    .legend(|(x,y)| TriangleMarker::new((x, y), 10, TEAL));
+                    draw_triangle_series!(ctx, points, name, TEAL);
                 }
                 else if color_idx == 7 {
-                    ctx.draw_series(
-                        points.into_iter().map(|point| {TriangleMarker::new(point, 10, GREEN)})
-                    )?
-                    .label(&name)
-                    .legend(|(x,y)| TriangleMarker::new((x, y), 10, GREEN));
+                    draw_triangle_series!(ctx, points, name, GREEN);
                 }
                 else if color_idx == 8 {
-                    ctx.draw_series(
-                        points.into_iter().map(|point| {TriangleMarker::new(point, 10, YELLOW)})
-                    )?
-                    .label(&name)
-                    .legend(|(x,y)| TriangleMarker::new((x, y), 10, YELLOW));
+                    draw_triangle_series!(ctx, points, name, YELLOW);
                 }
                 else if color_idx == 9 {
-                    ctx.draw_series(
-                        points.into_iter().map(|point| {TriangleMarker::new(point, 10, YELLOW)})
-                    )?
-                    .label(&name)
-                    .legend(|(x,y)| TriangleMarker::new((x, y), 10, ORANGE));
+                    draw_triangle_series!(ctx, points, name, ORANGE);
                 }
             } else if switch == 1 {
                 if color_idx == 0 {
-                    ctx.draw_series(
-                        points.into_iter().map(|point| {Circle::new(point, 10, RED)})
-                    )?
-                    .label(&name)
-                    .legend(|(x,y)| Circle::new((x, y), 10, RED));
+                    draw_circle_series!(ctx, points, name, RED);
                 }
                 else if color_idx == 1 {
-                    ctx.draw_series(
-                        points.into_iter().map(|point| {Circle::new(point, 10, PINK)})
-                    )?
-                    .label(&name)
-                    .legend(|(x,y)| Circle::new((x, y), 10, PINK));
+                    draw_circle_series!(ctx, points, name, PINK);
                 }
                 else if color_idx == 2 {
-                    ctx.draw_series(
-                        points.into_iter().map(|point| {Circle::new(point, 10, MAGENTA)})
-                    )?
-                    .label(&name)
-                    .legend(|(x,y)| Circle::new((x, y), 10, MAGENTA));
+                    draw_circle_series!(ctx, points, name, MAGENTA);
                 }
                 else if color_idx == 3 {
-                    ctx.draw_series(
-                        points.into_iter().map(|point| {Circle::new(point, 10, PURPLE)})
-                    )?
-                    .label(&name)
-                    .legend(|(x,y)| Circle::new((x, y), 10, PURPLE));
+                    draw_circle_series!(ctx, points, name, PURPLE);
                 }
                 else if color_idx == 4 {
-                    ctx.draw_series(
-                        points.into_iter().map(|point| {Circle::new(point, 10, BLUE)})
-                    )?
-                    .label(&name)
-                    .legend(|(x,y)| Circle::new((x, y), 10, BLUE));
+                    draw_circle_series!(ctx, points, name, BLUE);
                 }
                 else if color_idx == 5 {
-                    ctx.draw_series(
-                        points.into_iter().map(|point| {Circle::new(point, 10, CYAN)})
-                    )?
-                    .label(&name)
-                    .legend(|(x,y)| Circle::new((x, y), 10, CYAN));
+                    draw_circle_series!(ctx, points, name, CYAN);
                 }
                 else if color_idx == 6 {
-                    ctx.draw_series(
-                        points.into_iter().map(|point| {Circle::new(point, 10, TEAL)})
-                    )?
-                    .label(&name)
-                    .legend(|(x,y)| Circle::new((x, y), 10, TEAL));
+                    draw_circle_series!(ctx, points, name, TEAL);
                 }
                 else if color_idx == 7 {
-                    ctx.draw_series(
-                        points.into_iter().map(|point| {Circle::new(point, 10, GREEN)})
-                    )?
-                    .label(&name)
-                    .legend(|(x,y)| Circle::new((x, y), 10, GREEN));
+                    draw_circle_series!(ctx, points, name, GREEN);
                 }
                 else if color_idx == 8 {
-                    ctx.draw_series(
-                        points.into_iter().map(|point| {Circle::new(point, 10, YELLOW)})
-                    )?
-                    .label(&name)
-                    .legend(|(x,y)| Circle::new((x, y), 10, YELLOW));
+                    draw_circle_series!(ctx, points, name, YELLOW);
                 }
                 else if color_idx == 9 {
-                    ctx.draw_series(
-                        points.into_iter().map(|point| {Circle::new(point, 10, YELLOW)})
-                    )?
-                    .label(&name)
-                    .legend(|(x,y)| Circle::new((x, y), 10, ORANGE));
+                    draw_circle_series!(ctx, points, name, ORANGE);
                 }
             }
             color_idx += 1;
@@ -198,8 +142,8 @@ impl Export for Entries {
 }
 
 impl Export for Entry {
-    fn generate_png(&self, start_date: Date, end_date: Date) -> anyhow::Result<()> {
-        let dates = crate::utils::expand_dates(&start_date, &end_date);
+    fn generate_png(&self, num_of_days_back: u16, end_date: Date) -> anyhow::Result<()> {
+        let dates = crate::utils::expand_date_backwards(num_of_days_back, &end_date);
         let dates_to_usize: HashMap<Date, usize> = {
             let mut out = HashMap::new();
             for (idx, date) in dates.clone().into_iter().enumerate() {
@@ -223,11 +167,7 @@ impl Export for Entry {
             .configure_mesh()
             .draw()?;
 
-        ctx.draw_series(
-            self.get_points(&dates_to_usize).into_iter().map(|point| {TriangleMarker::new(point, 10, &BLACK)})
-        )?
-        .label(&self.names[0])
-        .legend(|(x,y)| TriangleMarker::new((x, y), 10, BLACK));
+        draw_triangle_series!(ctx, self.get_points(&dates_to_usize), self.names.get(0).unwrap_or(&"None".to_string()).to_string(), BLACK);
 
         ctx.configure_series_labels().border_style(BLACK).draw()?;
 

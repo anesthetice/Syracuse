@@ -15,16 +15,9 @@ use utils::{clean_backups, user_choice};
 
 use crate::animation::SimpleAnimation;
 
-fn main() {
-    let mut entry = Entry::default();
-    entry.names.push("test".to_string());
-    entry.update_bloc(&time::Date::from_ordinal_date(2023, 363).unwrap(), std::time::Duration::from_secs_f64(3600.0));
-    entry.update_bloc(&time::Date::from_ordinal_date(2023, 364).unwrap(), std::time::Duration::from_secs_f64(2400.0));
-    entry.generate_png(time::Date::from_ordinal_date(2023, 363).unwrap(), time::Date::from_ordinal_date(2024, 5).unwrap()).unwrap();
-}
 
 #[allow(mutable_transmutes)]
-fn main2() -> anyhow::Result<()> {
+fn main() -> anyhow::Result<()> {
     #[cfg(not(debug_assertions))]
     {
         let current_path = std::env::current_dir()
@@ -189,8 +182,19 @@ fn main2() -> anyhow::Result<()> {
     }
 
     if let Some(argmatches) = matches.subcommand_matches("graph") {
-        if argmatches.get_flag("all") {
+        let start_date = match config.graph_specific_end_date {
+            Some(specific_date) => specific_date,
+            None => date,
+        };
 
+        if argmatches.get_flag("all") {
+            entries.generate_png(config.graph_num_of_days_back, date)?;
+        } 
+        else if let Some(mat) =  argmatches.get_one::<String>("single") {
+            let name = mat.to_uppercase();
+            if let Some(entry) = user_choice(&entries.search(&name, config.search_threshold), &config) {
+                entry.generate_png(config.graph_num_of_days_back, date)?;
+            }
         }
     }
 

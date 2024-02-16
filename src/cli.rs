@@ -5,7 +5,7 @@ pub fn cli() -> clap::Command {
     let add_subcommand = Command::new("add")
         .alias("new")
         .about("used to add a new entry to syracuse")
-        .long_about("used to add a new entry to syracuse, you can have aliases for entries, seperate these with commas")
+        .long_about("used to add a new entry to syracuse, you can have aliases for entries, seperate these with spaces")
         .arg(Arg::new("entry")
                 .index(1)
                 .num_args(1..10)
@@ -38,6 +38,7 @@ pub fn cli() -> clap::Command {
         );
 
     let start_subcommand = Command::new("start")
+        .alias("go")
         .about("starts the stopwatch for the given entry")
         .arg(Arg::new("entry")
             .index(1)
@@ -47,6 +48,7 @@ pub fn cli() -> clap::Command {
         );
     
     let graph_subcommand = Command::new("graph")
+        .alias("export")
         .about("create a graph")
         .arg(Arg::new("all")
             .short('a')
