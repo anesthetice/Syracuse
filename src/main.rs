@@ -16,7 +16,7 @@ mod config;
 use config::Config;
 mod data;
 use data::{
-    graph::LatteGraph,
+    graph::Graph,
     internal::{Blocs, Entries, Entry},
 };
 mod error;

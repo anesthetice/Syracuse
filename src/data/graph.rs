@@ -28,29 +28,20 @@ macro_rules! draw_circle_series {
     };
 }
 
-pub trait LatteGraph {
-    const C0: RGBColor = RGBColor(242, 213, 207);
-    const C1: RGBColor = RGBColor(238, 190, 190);
-    const C2: RGBColor = RGBColor(244, 184, 228);
-    const C3: RGBColor = RGBColor(202, 158, 230);
-    const C4: RGBColor = RGBColor(231, 130, 132);
-    const C5: RGBColor = RGBColor(234, 153, 156);
-    const C6: RGBColor = RGBColor(239, 159, 118);
-    const C7: RGBColor = RGBColor(229, 200, 144);
-    const C8: RGBColor = RGBColor(166, 209, 137);
-    const C9: RGBColor = RGBColor(129, 200, 190);
-    const C10: RGBColor = RGBColor(153, 209, 219);
-    const C11: RGBColor = RGBColor(133, 193, 220);
-    const C12: RGBColor = RGBColor(140, 170, 238);
-    const C13: RGBColor = RGBColor(186, 187, 241);
-    const EXCLUSIVE_MAX_COLOR_IDX: usize = 14;
-    const FOREGROUND_COLOR_RGB: RGBColor = RGBColor(198, 208, 245);
-    const FOREGROUND_COLOR_RGBA: RGBAColor = RGBAColor(198, 208, 245, 1.0);
-    const BACKGROUND_COLOR: RGBColor = RGBColor(48, 52, 70);
+pub trait Graph {
+    const C0: RGBColor = RGBColor(245, 224, 220);
+    const C1: RGBColor = RGBColor(245, 124, 154);
+    const C2: RGBColor = RGBColor(230, 179, 150);
+    const C3: RGBColor = RGBColor(146, 230, 141);
+    const C4: RGBColor = RGBColor(116, 189, 250);
+    const EXCLUSIVE_MAX_COLOR_IDX: usize = 5;
+    const FOREGROUND_COLOR_RGB: RGBColor = RGBColor(205, 214, 244);
+    const FOREGROUND_COLOR_RGBA: RGBAColor = RGBAColor(205, 214, 244, 1.0);
+    const BACKGROUND_COLOR: RGBColor = RGBColor(30, 30, 46);
     fn generate_png(&self, dates: Vec<Date>) -> anyhow::Result<()>;
 }
 
-impl LatteGraph for Entries {
+impl Graph for Entries {
     fn generate_png(&self, mut dates: Vec<Date>) -> anyhow::Result<()> {
         if dates.is_empty() {
             Err(crate::error::Error::InvalidInput)?
@@ -163,24 +154,6 @@ impl LatteGraph for Entries {
                 draw_triangle_series!(ctx, points, name, Self::C3);
             } else if color_idx == 4 {
                 draw_triangle_series!(ctx, points, name, Self::C4);
-            } else if color_idx == 5 {
-                draw_triangle_series!(ctx, points, name, Self::C5);
-            } else if color_idx == 6 {
-                draw_triangle_series!(ctx, points, name, Self::C6);
-            } else if color_idx == 7 {
-                draw_triangle_series!(ctx, points, name, Self::C7);
-            } else if color_idx == 8 {
-                draw_triangle_series!(ctx, points, name, Self::C8);
-            } else if color_idx == 9 {
-                draw_triangle_series!(ctx, points, name, Self::C9);
-            } else if color_idx == 10 {
-                draw_triangle_series!(ctx, points, name, Self::C10);
-            } else if color_idx == 11 {
-                draw_triangle_series!(ctx, points, name, Self::C11);
-            } else if color_idx == 12 {
-                draw_triangle_series!(ctx, points, name, Self::C12);
-            } else if color_idx == 13 {
-                draw_triangle_series!(ctx, points, name, Self::C13);
             }
             color_idx += 1;
         }
@@ -200,24 +173,6 @@ impl LatteGraph for Entries {
                 draw_circle_series!(ctx, points, name, Self::C3);
             } else if color_idx == 4 {
                 draw_circle_series!(ctx, points, name, Self::C4);
-            } else if color_idx == 5 {
-                draw_circle_series!(ctx, points, name, Self::C5);
-            } else if color_idx == 6 {
-                draw_circle_series!(ctx, points, name, Self::C6);
-            } else if color_idx == 7 {
-                draw_circle_series!(ctx, points, name, Self::C7);
-            } else if color_idx == 8 {
-                draw_circle_series!(ctx, points, name, Self::C8);
-            } else if color_idx == 9 {
-                draw_circle_series!(ctx, points, name, Self::C9);
-            } else if color_idx == 10 {
-                draw_circle_series!(ctx, points, name, Self::C10);
-            } else if color_idx == 11 {
-                draw_circle_series!(ctx, points, name, Self::C11);
-            } else if color_idx == 12 {
-                draw_circle_series!(ctx, points, name, Self::C12);
-            } else if color_idx == 13 {
-                draw_circle_series!(ctx, points, name, Self::C13);
             }
             color_idx += 1;
         }
@@ -232,7 +187,7 @@ impl LatteGraph for Entries {
     }
 }
 
-impl LatteGraph for Entry {
+impl Graph for Entry {
     fn generate_png(&self, mut dates: Vec<Date>) -> anyhow::Result<()> {
         if dates.is_empty() {
             Err(crate::error::Error::InvalidInput)?
