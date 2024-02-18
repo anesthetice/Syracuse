@@ -4,30 +4,6 @@ use time::Date;
 
 use super::internal::{Entries, Entry};
 
-macro_rules! draw_triangle_series {
-    ($ctx:expr, $points:expr, $name:expr, $color:expr) => {
-        $ctx.draw_series(
-            $points
-                .into_iter()
-                .map(|point| TriangleMarker::new(point, 7, $color)),
-        )?
-        .label($name)
-        .legend(|(x, y)| TriangleMarker::new((x, y), 7, $color));
-    };
-}
-
-macro_rules! draw_circle_series {
-    ($ctx:expr, $points:expr, $name:expr, $color:expr) => {
-        $ctx.draw_series(
-            $points
-                .into_iter()
-                .map(|point| Circle::new(point, 7, $color)),
-        )?
-        .label($name)
-        .legend(|(x, y)| Circle::new((x, y), 7, $color));
-    };
-}
-
 pub trait Graph {
     const C0: RGBColor = RGBColor(245, 224, 220);
     const C1: RGBColor = RGBColor(245, 124, 154);
@@ -108,7 +84,7 @@ impl Graph for Entries {
             })
             .collect();
 
-        superpoints.retain(|(_, points)| {points.len() > 0});
+        superpoints.retain(|(_, points)| !points.is_empty());
 
         let max_y = sum_points
             .iter()
@@ -234,7 +210,7 @@ impl Graph for Entry {
             }
             out
         };
-        let mut points = self.get_points(&dates_to_usize);
+        let points = self.get_points(&dates_to_usize);
 
         let max_y = points
             .iter()
@@ -246,12 +222,13 @@ impl Graph for Entry {
         let image_width: u32 = 400 + dates.len() as u32 * 100;
         let image_height: u32 = 1080;
 
-        let name = self.names.first().unwrap_or(&"unkown".to_string()).to_lowercase();
+        let name = self
+            .names
+            .first()
+            .unwrap_or(&"unkown".to_string())
+            .to_lowercase();
 
-        let filename = format!(
-            "graph-{}.png",
-            name
-        );
+        let filename = format!("graph-{}.png", name);
 
         let root = BitMapBackend::new(&filename, (image_width, image_height)).into_drawing_area();
         root.fill::<RGBColor>(&Self::BACKGROUND_COLOR)?;

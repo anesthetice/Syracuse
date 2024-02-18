@@ -82,9 +82,9 @@ impl Entries {
 
     pub fn clean(&mut self) {
         for entry in self.iter_mut() {
-            entry.blocs.retain(|_, duration| {
-                *duration != Duration::ZERO
-            })
+            entry
+                .blocs
+                .retain(|_, duration| *duration != Duration::ZERO)
         }
     }
 }
@@ -188,7 +188,7 @@ impl std::fmt::Display for Blocs {
             f,
             "[{}]",
             self.iter()
-                .sorted_by(|(a, _), (b, _)| {a.cmp(b)})
+                .sorted_by(|(a, _), (b, _)| { a.cmp(b) })
                 .enumerate()
                 .fold(String::new(), |acc, (idx, x)| {
                     if self.len() != idx + 1 {
