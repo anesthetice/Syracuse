@@ -9,10 +9,10 @@ macro_rules! draw_triangle_series {
         $ctx.draw_series(
             $points
                 .into_iter()
-                .map(|point| TriangleMarker::new(point, 5, $color)),
+                .map(|point| TriangleMarker::new(point, 7, $color)),
         )?
         .label($name)
-        .legend(|(x, y)| TriangleMarker::new((x, y), 5, $color));
+        .legend(|(x, y)| TriangleMarker::new((x, y), 7, $color));
     };
 }
 
@@ -21,10 +21,10 @@ macro_rules! draw_circle_series {
         $ctx.draw_series(
             $points
                 .into_iter()
-                .map(|point| Circle::new(point, 5, $color)),
+                .map(|point| Circle::new(point, 7, $color)),
         )?
         .label($name)
-        .legend(|(x, y)| Circle::new((x, y), 5, $color));
+        .legend(|(x, y)| Circle::new((x, y), 7, $color));
     };
 }
 
@@ -38,6 +38,7 @@ pub trait Graph {
     const FOREGROUND_COLOR_RGB: RGBColor = RGBColor(205, 214, 244);
     const FOREGROUND_COLOR_RGBA: RGBAColor = RGBAColor(205, 214, 244, 1.0);
     const BACKGROUND_COLOR: RGBColor = RGBColor(30, 30, 46);
+    const SUM_LINE_COLROR: RGBColor = RGBColor(166, 173, 200);
     fn generate_png(&self, dates: Vec<Date>) -> anyhow::Result<()>;
 }
 
@@ -83,6 +84,9 @@ impl Graph for Entries {
             out
         };
 
+        let mut sum_points: Vec<(usize, f64)> =
+            (0_usize..dates.len() - 1).map(|num| (num, 0.0)).collect();
+
         let mut superpoints: Vec<(String, Vec<(usize, f64)>)> = self
             .iter()
             .map(|entry| {
@@ -92,23 +96,26 @@ impl Graph for Entries {
                         .first()
                         .unwrap_or(&String::from("UNKNOWN"))
                         .to_owned(),
-                    entry.get_points(&dates_to_usize),
+                    entry
+                        .get_points(&dates_to_usize)
+                        .into_iter()
+                        .map(|(idx, val)| {
+                            sum_points.get_mut(idx).unwrap().1 += val;
+                            (idx, val)
+                        })
+                        .collect(),
                 )
             })
             .collect();
 
-        let max_y = superpoints
+        superpoints.retain(|(_, points)| {points.len() > 0});
+
+        let max_y = sum_points
             .iter()
-            .map(|(_, points)| {
-                points
-                    .iter()
-                    .map(|(_, val)| *val)
-                    .max_by(|a, b| a.total_cmp(b))
-                    .unwrap_or(1.0)
-            })
+            .map(|(_, y)| *y)
             .max_by(|a, b| a.total_cmp(b))
-            .unwrap_or(1.0);
-        let max_y = max_y.ceil();
+            .unwrap_or(1.0)
+            .ceil();
 
         let image_width: u32 = 400 + dates.len() as u32 * 100;
         let image_height: u32 = 1080;
@@ -138,49 +145,48 @@ impl Graph for Entries {
             .x_labels(dates.len())
             .draw()?;
 
+        ctx.draw_series(LineSeries::new(
+            sum_points.into_iter(),
+            Self::SUM_LINE_COLROR,
+        ))?;
+
         let mut color_idx: usize = 0;
+
+        let colors = [Self::C0, Self::C1, Self::C2, Self::C3, Self::C4];
 
         while let Some((name, points)) = superpoints.pop() {
             if color_idx == Self::EXCLUSIVE_MAX_COLOR_IDX {
                 break;
             }
-            if color_idx == 0 {
-                draw_triangle_series!(ctx, points, name, Self::C0);
-            } else if color_idx == 1 {
-                draw_triangle_series!(ctx, points, name, Self::C1);
-            } else if color_idx == 2 {
-                draw_triangle_series!(ctx, points, name, Self::C2);
-            } else if color_idx == 3 {
-                draw_triangle_series!(ctx, points, name, Self::C3);
-            } else if color_idx == 4 {
-                draw_triangle_series!(ctx, points, name, Self::C4);
-            }
+            ctx.draw_series(
+                points
+                    .into_iter()
+                    .map(|point| TriangleMarker::new(point, 6, colors[color_idx])),
+            )?
+            .label(name)
+            .legend(move |point| TriangleMarker::new(point, 6, colors[color_idx]));
+
             color_idx += 1;
         }
         color_idx = 0;
 
         while let Some((name, points)) = superpoints.pop() {
-            if color_idx == Self::EXCLUSIVE_MAX_COLOR_IDX {
-                break;
-            }
-            if color_idx == 0 {
-                draw_circle_series!(ctx, points, name, Self::C0);
-            } else if color_idx == 1 {
-                draw_circle_series!(ctx, points, name, Self::C1);
-            } else if color_idx == 2 {
-                draw_circle_series!(ctx, points, name, Self::C2);
-            } else if color_idx == 3 {
-                draw_circle_series!(ctx, points, name, Self::C3);
-            } else if color_idx == 4 {
-                draw_circle_series!(ctx, points, name, Self::C4);
-            }
+            ctx.draw_series(
+                points
+                    .into_iter()
+                    .map(|point| Circle::new(point, 6, colors[color_idx].stroke_width(2))),
+            )?
+            .label(name)
+            .legend(move |point| Circle::new(point, 6, colors[color_idx].stroke_width(2)));
+
             color_idx += 1;
         }
 
         ctx.configure_series_labels()
             .position(SeriesLabelPosition::UpperRight)
             .border_style(Self::FOREGROUND_COLOR_RGB)
-            .label_font(&Self::FOREGROUND_COLOR_RGB)
+            .margin(15)
+            .label_font(("sans-serif", 15.0).with_color(Self::FOREGROUND_COLOR_RGB))
             .draw()?;
 
         Ok(root.present()?)
@@ -228,25 +234,23 @@ impl Graph for Entry {
             }
             out
         };
-
-        let points = self.get_points(&dates_to_usize);
+        let mut points = self.get_points(&dates_to_usize);
 
         let max_y = points
             .iter()
-            .map(|(_, val)| *val)
+            .map(|(_, y)| *y)
             .max_by(|a, b| a.total_cmp(b))
-            .unwrap_or(1.0);
-        let max_y = max_y.ceil();
+            .unwrap_or(1.0)
+            .ceil();
 
         let image_width: u32 = 400 + dates.len() as u32 * 100;
         let image_height: u32 = 1080;
 
+        let name = self.names.first().unwrap_or(&"unkown".to_string()).to_lowercase();
+
         let filename = format!(
             "graph-{}.png",
-            self.names
-                .first()
-                .unwrap_or(&"unkown".to_string())
-                .to_lowercase()
+            name
         );
 
         let root = BitMapBackend::new(&filename, (image_width, image_height)).into_drawing_area();
@@ -276,8 +280,18 @@ impl Graph for Entry {
         ctx.draw_series(
             points
                 .into_iter()
-                .map(|point| TriangleMarker::new(point, 5, Self::FOREGROUND_COLOR_RGB)),
-        )?;
+                .map(|point| TriangleMarker::new(point, 6, Self::FOREGROUND_COLOR_RGB)),
+        )?
+        .label(name)
+        .legend(move |point| TriangleMarker::new(point, 6, Self::FOREGROUND_COLOR_RGB));
+
+        ctx.configure_series_labels()
+            .position(SeriesLabelPosition::UpperRight)
+            .border_style(Self::FOREGROUND_COLOR_RGB)
+            .margin(15)
+            .label_font(("sans-serif", 15.0).with_color(Self::FOREGROUND_COLOR_RGB))
+            .draw()?;
+
         Ok(root.present()?)
     }
 }

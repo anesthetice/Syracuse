@@ -51,6 +51,57 @@ pub fn cli() -> clap::Command {
                 .action(ArgAction::Set),
         );
 
+    let update_subcommand = Command::new("update")
+        .about("updates an entry's data")
+        .arg(
+            Arg::new("entry")
+                .index(1)
+                .required(true)
+                .help("entry to update")
+                .action(ArgAction::Set),
+        )
+        .arg(
+            Arg::new("date")
+                .required(false)
+                .help("updates specified date")
+                .long_help("updates specified date, defaults to today")
+                .short('d')
+                .long("date")
+                .action(ArgAction::Set),
+        )
+        .arg(
+            Arg::new("hour")
+                .required(false)
+                .help("hours to add or subtract")
+                .short('t')
+                .long("hour")
+                .action(ArgAction::Set),
+        )
+        .arg(
+            Arg::new("minute")
+                .required(false)
+                .help("minutes to add or subtract")
+                .short('m')
+                .long("minute")
+                .action(ArgAction::Set),
+        )
+        .arg(
+            Arg::new("second")
+                .required(false)
+                .help("secondss to add or subtract")
+                .short('s')
+                .long("second")
+                .action(ArgAction::Set),
+        )
+        .arg(
+            Arg::new("negative")
+                .required(false)
+                .help("subtract the provided time instead of adding it")
+                .short('n')
+                .long("negative")
+                .action(ArgAction::SetTrue),
+        );
+
     let graph_subcommand = Command::new("graph")
         .alias("export")
         .about("create a graph")
@@ -77,5 +128,6 @@ pub fn cli() -> clap::Command {
         .subcommand(list_subcommand)
         .subcommand(remove_subcommand)
         .subcommand(start_subcommand)
+        .subcommand(update_subcommand)
         .subcommand(graph_subcommand)
 }

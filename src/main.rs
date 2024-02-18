@@ -1,9 +1,4 @@
-use crossterm::{
-    cursor, event, execute,
-    style::Stylize,
-    terminal::{disable_raw_mode, enable_raw_mode},
-};
-use rand::seq::SliceRandom;
+use crossterm::{event, style::Stylize};
 use std::{
     io::Write,
     time::{Duration, Instant},
@@ -22,7 +17,9 @@ use data::{
 mod error;
 use error::Error;
 mod utils;
-use utils::{clean_backups, expand_date_backwards, user_choice};
+use utils::{clean_backups, expand_date_backwards, parse_date, user_choice};
+
+use crate::utils::{enter_clean_input_mode, exit_clean_input_mode};
 
 #[allow(mutable_transmutes)]
 fn main() -> anyhow::Result<()> {
@@ -70,10 +67,6 @@ fn main() -> anyhow::Result<()> {
     }
 
     let config = Config::new();
-    if config.colorful && config.color_palette.is_empty() {
-        error!("color palette needs at least one color");
-        Err(Error::InvalidConfig)?;
-    }
 
     let date: time::Date = {
         match time::UtcOffset::from_hms(
@@ -97,6 +90,7 @@ fn main() -> anyhow::Result<()> {
         error!("failed to load entries");
         err
     })?;
+    entries.clean();
     entries.backup().map_err(|err| {
         error!("failed to backup entries");
         err
@@ -131,34 +125,11 @@ fn main() -> anyhow::Result<()> {
     }
 
     if let Some(argmatches) = matches.subcommand_matches("list") {
-        if config.colorful {
-            let mut color_idx: usize = 0;
-            let max_color_idx: usize = config.color_palette.len();
-            for entry in entries.iter() {
-                if color_idx == max_color_idx {
-                    color_idx = 0;
-                }
-                let string = {
-                    if argmatches.get_flag("full") {
-                        format!("{}\n{}\n", entry, entry.blocs)
-                            .with(config.color_palette[color_idx].into())
-                    } else {
-                        format!("{}\n", entry).with(config.color_palette[color_idx].into())
-                    }
-                };
-                println!("{}", string);
-                color_idx += 1;
-            }
-        } else {
-            for entry in entries.iter() {
-                let string = {
-                    if argmatches.get_flag("full") {
-                        format!("{}\n{}\n", entry, entry.blocs)
-                    } else {
-                        format!("{}\n", entry)
-                    }
-                };
-                println!("{}", string);
+        for entry in entries.iter() {
+            if argmatches.get_flag("full") {
+                println!("{}\n{}\n", entry, entry.blocs)
+            } else {
+                println!("{}\n", entry)
             }
         }
     }
@@ -167,7 +138,7 @@ fn main() -> anyhow::Result<()> {
         if let Some(mat) = argmatches.get_one::<String>("entry") {
             let name = mat.to_uppercase();
             if let Some(entry_to_remove) =
-                user_choice(&entries.search(&name, config.search_threshold), &config)
+                user_choice(&entries.search(&name, config.search_threshold))
             {
                 let idx_to_remove = entries
                     .iter()
@@ -186,33 +157,23 @@ fn main() -> anyhow::Result<()> {
     if let Some(argmatches) = matches.subcommand_matches("start") {
         if let Some(mat) = argmatches.get_one::<String>("entry") {
             let name = mat.to_uppercase();
-            if let Some(entry) =
-                user_choice(&entries.search(&name, config.search_threshold), &config)
-            {
+            if let Some(entry) = user_choice(&entries.search(&name, config.search_threshold)) {
                 let entry: &mut Entry = unsafe { std::mem::transmute(entry) };
                 println!();
 
                 let start = Instant::now();
                 let mut instant = start;
                 let mut save_instant = start;
-                let color = match config.colorful {
-                    true => config.color_palette.choose(&mut rand::thread_rng()),
-                    false => None,
-                };
 
                 let mut stdout = std::io::stdout();
                 let mut frame: usize = 0;
 
-                enable_raw_mode()?;
-                let _ = execute!(stdout, cursor::Hide)
-                    .map_err(|err| warn!("failed to hide cursor\n{err}"));
-
+                enter_clean_input_mode();
                 loop {
                     SimpleAnimation::play(
                         &mut stdout,
                         &mut frame,
                         &instant.duration_since(start).as_secs_f64(),
-                        color,
                     );
                     let _ = stdout
                         .flush()
@@ -228,7 +189,7 @@ fn main() -> anyhow::Result<()> {
                         }
                     }
                     let new_instant = Instant::now();
-                    entry.update_bloc(&date, new_instant.duration_since(instant));
+                    entry.update_bloc_add(&date, new_instant.duration_since(instant));
                     instant = new_instant;
                     if instant.duration_since(save_instant)
                         > Duration::from_secs_f64(config.save_period)
@@ -240,9 +201,43 @@ fn main() -> anyhow::Result<()> {
                         save_instant = new_instant;
                     }
                 }
-                let _ = execute!(stdout, cursor::Show)
-                    .map_err(|err| warn!("failed to show cursor\n{err}"));
-                let _ = disable_raw_mode();
+                exit_clean_input_mode();
+                entries.save().map_err(|err| {
+                    error!("failed to save progress");
+                    err
+                })?;
+            }
+        }
+    }
+
+    if let Some(argmatches) = matches.subcommand_matches("update") {
+        let specified_date = match argmatches.get_one::<String>("date") {
+            Some(slice) => parse_date(slice).unwrap_or(date),
+            None => date,
+        };
+        if let Some(mat) = argmatches.get_one::<String>("entry") {
+            let name = mat.to_uppercase();
+            if let Some(entry) = user_choice(&entries.search(&name, config.search_threshold)) {
+                let hour_diff: f64 = match argmatches.get_one::<String>("hour") {
+                    Some(val) => val.parse::<f64>().unwrap_or(0.0),
+                    None => 0.0,
+                };
+                let minute_diff: f64 = match argmatches.get_one::<String>("minute") {
+                    Some(val) => val.parse::<f64>().unwrap_or(0.0),
+                    None => 0.0,
+                };
+                let second_diff: f64 = match argmatches.get_one::<String>("second") {
+                    Some(val) => val.parse::<f64>().unwrap_or(0.0),
+                    None => 0.0,
+                };
+                let total_diff: u64 =
+                    (hour_diff * 3600.0 + minute_diff * 60.0 + second_diff) as u64;
+                let entry: &mut Entry = unsafe { std::mem::transmute(entry) };
+                if argmatches.get_flag("negative") {
+                    entry.update_bloc_sub(&specified_date, Duration::from_secs(total_diff))
+                } else {
+                    entry.update_bloc_add(&specified_date, Duration::from_secs(total_diff))
+                }
                 entries.save().map_err(|err| {
                     error!("failed to save progress");
                     err
@@ -264,9 +259,7 @@ fn main() -> anyhow::Result<()> {
             ))?;
         } else if let Some(mat) = argmatches.get_one::<String>("single") {
             let name = mat.to_uppercase();
-            if let Some(entry) =
-                user_choice(&entries.search(&name, config.search_threshold), &config)
-            {
+            if let Some(entry) = user_choice(&entries.search(&name, config.search_threshold)) {
                 entry.generate_png(expand_date_backwards(
                     config.graph_num_of_days_back,
                     &end_date,

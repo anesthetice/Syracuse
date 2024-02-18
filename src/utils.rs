@@ -3,10 +3,9 @@ use crossterm::{
     style::Stylize,
     terminal::{disable_raw_mode, enable_raw_mode},
 };
-use rand::seq::SliceRandom;
-use std::io::stdout;
+use std::io::{stdin, stdout, Read, Write};
 
-use crate::{config::Config, data::internal::Entries};
+use crate::data::internal::Entries;
 
 #[macro_export]
 macro_rules! info {
@@ -29,7 +28,7 @@ macro_rules! error {
     };
 }
 
-pub fn user_choice<'a, T>(choices: &'a [&'a T], config: &Config) -> Option<&'a T>
+pub fn user_choice<'a, T>(choices: &'a [&'a T]) -> Option<&'a T>
 where
     T: std::fmt::Display,
 {
@@ -38,132 +37,108 @@ where
             warn!("no choices to select");
             None
         }
-        1 => {
-            if config.colorful {
-                if let Some(color) = config.color_palette.choose(&mut rand::thread_rng()) {
-                    println!(
-                        "{}\n{}/{} ?",
-                        format!("{}", choices[0]).with(color.into()),
-                        "Yes".with(config.color_green.into()),
-                        "No".with(config.color_red.into())
-                    );
-                } else {
-                    println!(
-                        "{}\n{}/{} ?",
-                        choices[0],
-                        "Yes".with(config.color_green.into()),
-                        "No".with(config.color_red.into())
-                    );
-                }
-            } else {
-                println!("{}\nYes/No ?", choices[0])
-            }
-            if let Err(err) = enable_raw_mode() {
-                error!("failed to enable raw mode\n{err}");
-                return None;
-            }
-            let _ = execute!(stdout(), cursor::Hide)
-                .map_err(|err| warn!("failed to hide cursor\n{err}"));
-
-            loop {
-                if event::poll(std::time::Duration::from_secs_f64(0.1)).unwrap() {
-                    if let event::Event::Key(key) = event::read().ok()? {
-                        if key.kind == event::KeyEventKind::Press {
-                            match key.code {
-                                event::KeyCode::Esc
-                                | event::KeyCode::Char('q')
-                                | event::KeyCode::Char('n') => {
-                                    let _ = execute!(stdout(), cursor::Show)
-                                        .map_err(|err| warn!("failed to show cursor\n{err}"));
-                                    let _ = disable_raw_mode()
-                                        .map_err(|err| warn!("failed to disable raw mode\n{err}"));
-                                    break None;
-                                }
-                                event::KeyCode::Char('y') | event::KeyCode::Enter => {
-                                    let _ = execute!(stdout(), cursor::Show)
-                                        .map_err(|err| warn!("failed to show cursor\n{err}"));
-                                    let _ = disable_raw_mode()
-                                        .map_err(|err| warn!("failed to disable raw mode\n{err}"));
-                                    break Some(choices[0]);
-                                }
-                                _ => {}
-                            }
-                        }
-                    }
-                }
-            }
-        }
-        2..=9 => {
-            let mut idx: usize = 0;
-            while idx < choices.len() {
-                if config.colorful {
-                    for color in config.color_palette.iter() {
-                        if idx >= choices.len() {
-                            break;
-                        }
-                        let string = format!("{idx}: {}", choices[idx]);
-                        println!("{}", string.with(color.into()));
-                        idx += 1;
-                    }
-                } else {
-                    let string = format!("{idx}: {}", choices[idx]);
-                    println!("{}", string);
-                    idx += 1;
-                }
-            }
-            if let Err(err) = enable_raw_mode() {
-                error!("failed to enable raw mode\n{err}");
-                return None;
-            }
-            let _ = execute!(stdout(), cursor::Show)
-                .map_err(|err| warn!("failed to show cursor\n{err}"));
-            loop {
-                if event::poll(std::time::Duration::from_secs_f64(0.1)).unwrap() {
-                    if let event::Event::Key(key) = event::read().ok()? {
-                        if key.kind == event::KeyEventKind::Press {
-                            match key.code {
-                                event::KeyCode::Esc
-                                | event::KeyCode::Char('q')
-                                | event::KeyCode::Char('n') => {
-                                    let _ = execute!(stdout(), cursor::Show)
-                                        .map_err(|err| warn!("failed to show cursor\n{err}"));
-                                    let _ = disable_raw_mode()
-                                        .map_err(|err| warn!("failed to disable raw mode\n{err}"));
-                                    break None;
-                                }
-                                event::KeyCode::Enter => {
-                                    let _ = execute!(stdout(), cursor::Show)
-                                        .map_err(|err| warn!("failed to show cursor\n{err}"));
-                                    let _ = disable_raw_mode()
-                                        .map_err(|err| warn!("failed to disable raw mode\n{err}"));
-                                    break Some(choices[0]);
-                                }
-                                event::KeyCode::Char(chr) => {
-                                    if chr.is_numeric() {
-                                        if let Ok(idx) = chr.to_string().parse::<usize>() {
-                                            let _ =
-                                                execute!(stdout(), cursor::Show).map_err(|err| {
-                                                    warn!("failed to show cursor\n{err}")
-                                                });
-                                            let _ = disable_raw_mode().map_err(|err| {
-                                                warn!("failed to disable raw mode\n{err}")
-                                            });
-                                            break Some(choices[idx]);
-                                        }
-                                    }
-                                }
-                                _ => {}
-                            }
-                        }
-                    }
-                }
-            }
-        }
+        1 => user_choice_single(choices),
+        2..=9 => user_choice_multiple(choices),
         _ => {
-            error!("too many choices, increase the threshold");
-            None
+            warn!("too many choices, defaulting to a less pretty mode");
+            user_choice_multiple_expanded(choices)
         }
     }
+}
+
+fn user_choice_single<'a, T>(choices: &'a [&'a T]) -> Option<&'a T>
+where
+    T: std::fmt::Display,
+{
+    println!("{}\nYes/No ?", choices[0]);
+    enter_clean_input_mode();
+    loop {
+        if event::poll(std::time::Duration::from_secs_f64(0.1)).unwrap() {
+            if let event::Event::Key(key) = event::read().ok()? {
+                if key.kind == event::KeyEventKind::Press {
+                    match key.code {
+                        event::KeyCode::Esc
+                        | event::KeyCode::Char('q')
+                        | event::KeyCode::Char('n') => {
+                            exit_clean_input_mode();
+                            break None;
+                        }
+                        event::KeyCode::Char('y') | event::KeyCode::Enter => {
+                            exit_clean_input_mode();
+                            break Some(choices[0]);
+                        }
+                        _ => {}
+                    }
+                }
+            }
+        }
+    }
+}
+
+pub fn user_choice_multiple<'a, T>(choices: &'a [&'a T]) -> Option<&'a T>
+where
+    T: std::fmt::Display,
+{
+    for (idx, choice) in choices.iter().enumerate() {
+        println!("{}: {}", idx + 1, choice);
+    }
+    enter_clean_input_mode();
+
+    loop {
+        if event::poll(std::time::Duration::from_secs_f64(0.1)).unwrap() {
+            if let event::Event::Key(key) = event::read().ok()? {
+                if key.kind == event::KeyEventKind::Press {
+                    match key.code {
+                        event::KeyCode::Esc
+                        | event::KeyCode::Char('q')
+                        | event::KeyCode::Char('n') => {
+                            exit_clean_input_mode();
+                            break None;
+                        }
+                        event::KeyCode::Enter => {
+                            exit_clean_input_mode();
+                            break Some(choices[0]);
+                        }
+                        event::KeyCode::Char(chr) => {
+                            if chr.is_numeric() {
+                                if let Ok(idx) = chr.to_string().parse::<usize>() {
+                                    exit_clean_input_mode();
+                                    break Some(choices[idx - 1]);
+                                }
+                            }
+                        }
+                        _ => {}
+                    }
+                }
+            }
+        }
+    }
+}
+
+pub fn user_choice_multiple_expanded<'a, T>(choices: &'a [&'a T]) -> Option<&'a T>
+where
+    T: std::fmt::Display,
+{
+    for (idx, choice) in choices.iter().enumerate() {
+        println!("{}: {}", idx + 1, choice);
+    }
+    let mut input: String = String::new();
+    print!("> ");
+    let _ = stdout().flush();
+    stdin().read_to_string(&mut input).ok()?;
+    choices
+        .get(input.trim().parse::<usize>().ok()?.checked_sub(1)?)
+        .copied()
+}
+
+pub fn enter_clean_input_mode() {
+    let _ = enable_raw_mode().map_err(|err| warn!("failed to enable raw mode\n{err}"));
+    let _ = execute!(stdout(), cursor::Hide).map_err(|err| warn!("failed to hide cursor\n{err}"));
+}
+
+pub fn exit_clean_input_mode() {
+    let _ = execute!(stdout(), cursor::Show).map_err(|err| warn!("failed to show cursor\n{err}"));
+    let _ = disable_raw_mode().map_err(|err| warn!("failed to disable raw mode\n{err}"));
 }
 
 /// older_than: seconds
@@ -214,4 +189,17 @@ pub fn expand_date_backwards(
     }
     dates.reverse();
     dates
+}
+
+pub fn parse_date(input: &str) -> Option<time::Date> {
+    let input: Vec<&str> = input.split('/').collect();
+    if input.len() != 3 {
+        return None;
+    }
+    time::Date::from_calendar_date(
+        input[2].parse::<i32>().ok()?,
+        time::Month::try_from(input[1].parse::<u8>().ok()?).ok()?,
+        input[0].parse::<u8>().ok()?,
+    )
+    .ok()
 }

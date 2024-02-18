@@ -1,7 +1,6 @@
 #[derive(Debug)]
 pub enum Error {
     Initialization,
-    InvalidConfig,
     InvalidInput,
 }
 
@@ -15,7 +14,6 @@ impl std::error::Error for Error {
     fn description(&self) -> &str {
         match self {
             Self::Initialization => "failed to initialize the application",
-            Self::InvalidConfig => "invalid configuration",
             Self::InvalidInput => "invalid input",
         }
     }

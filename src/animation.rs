@@ -1,13 +1,13 @@
 use crossterm::style::Stylize;
 use std::io::Write;
 
-use crate::{data::internal::UniColor, warn};
+use crate::warn;
 
 pub struct SimpleAnimation;
 
 impl Animation for SimpleAnimation {
     const FRAMES: usize = 8;
-    fn play<T>(stdout: &mut std::io::Stdout, frame: &mut usize, focus: &T, color: Option<&UniColor>)
+    fn play<T>(stdout: &mut std::io::Stdout, frame: &mut usize, focus: &T)
     where
         T: std::fmt::Display,
     {
@@ -25,26 +25,16 @@ impl Animation for SimpleAnimation {
             7 => format!("\r\\  {:.3}  \\      ", focus),
             _ => unreachable!(),
         };
-        if let Some(color) = color {
-            let _ = stdout
-                .write_all(frame_to_draw.with(color.into()).to_string().as_bytes())
-                .map_err(|err| warn!("animation issue\n{err}"));
-        } else {
-            let _ = stdout
-                .write_all(frame_to_draw.as_bytes())
-                .map_err(|err| warn!("animation issue\n{err}"));
-        }
+        let _ = stdout
+            .write_all(frame_to_draw.as_bytes())
+            .map_err(|err| warn!("animation issue\n{err}"));
         *frame += 1;
     }
 }
 
 pub trait Animation {
     const FRAMES: usize;
-    fn play<T>(
-        stdout: &mut std::io::Stdout,
-        frame: &mut usize,
-        focus: &T,
-        color: Option<&UniColor>,
-    ) where
+    fn play<T>(stdout: &mut std::io::Stdout, frame: &mut usize, focus: &T)
+    where
         T: std::fmt::Display;
 }

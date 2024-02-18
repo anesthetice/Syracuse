@@ -4,7 +4,7 @@ use serde_with::serde_as;
 use std::{
     collections::HashMap,
     io::{Read, Write},
-    ops::AddAssign,
+    ops::{AddAssign, SubAssign},
     time::Duration,
 };
 
@@ -79,6 +79,14 @@ impl Entries {
             .map(|(_, entry)| entry)
             .collect()
     }
+
+    pub fn clean(&mut self) {
+        for entry in self.iter_mut() {
+            entry.blocs.retain(|_, duration| {
+                *duration != Duration::ZERO
+            })
+        }
+    }
 }
 
 #[derive(Debug, Default, PartialEq, Serialize, Deserialize)]
@@ -117,11 +125,23 @@ impl Entry {
         self.names.contains(other_name)
     }
 
-    pub fn update_bloc(&mut self, date: &time::Date, additional_duration: Duration) {
+    pub fn update_bloc_add(&mut self, date: &time::Date, additional_duration: Duration) {
         if let Some(duration) = self.blocs.get_mut(date) {
             duration.add_assign(additional_duration);
         } else {
             self.blocs.insert(date.to_owned(), additional_duration);
+        }
+    }
+
+    pub fn update_bloc_sub(&mut self, date: &time::Date, reduced_duration: Duration) {
+        if let Some(duration) = self.blocs.get_mut(date) {
+            if *duration > reduced_duration {
+                duration.sub_assign(reduced_duration);
+            } else {
+                duration.sub_assign(*duration)
+            }
+        } else {
+            self.blocs.insert(date.to_owned(), Duration::ZERO);
         }
     }
 
@@ -168,6 +188,7 @@ impl std::fmt::Display for Blocs {
             f,
             "[{}]",
             self.iter()
+                .sorted_by(|(a, _), (b, _)| {a.cmp(b)})
                 .enumerate()
                 .fold(String::new(), |acc, (idx, x)| {
                     if self.len() != idx + 1 {
@@ -177,7 +198,7 @@ impl std::fmt::Display for Blocs {
                             x.0.month() as u8,
                             x.0.year()
                         ) + &format!("{}", x.1.as_secs_f64())
-                            + ","
+                            + ", "
                     } else {
                         acc + &format!(
                             "{:0>2}/{:0>2}/{:0>4}: ",
@@ -262,58 +283,5 @@ mod test {
         ));
 
         assert_eq!(entries.search(search_key, threshold).len(), 0)
-    }
-}
-
-#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
-pub struct UniColor(u8, u8, u8);
-
-impl UniColor {
-    pub fn new(r: u8, g: u8, b: u8) -> Self {
-        Self(r, g, b)
-    }
-}
-
-impl From<UniColor> for plotters::style::RGBAColor {
-    fn from(value: UniColor) -> Self {
-        Self(value.0, value.1, value.2, 1.0)
-    }
-}
-
-impl From<&UniColor> for plotters::style::RGBAColor {
-    fn from(value: &UniColor) -> Self {
-        Self(value.0, value.1, value.2, 1.0)
-    }
-}
-
-impl From<UniColor> for plotters::style::RGBColor {
-    fn from(value: UniColor) -> Self {
-        Self(value.0, value.1, value.2)
-    }
-}
-
-impl From<&UniColor> for plotters::style::RGBColor {
-    fn from(value: &UniColor) -> Self {
-        Self(value.0, value.1, value.2)
-    }
-}
-
-impl From<UniColor> for crossterm::style::Color {
-    fn from(value: UniColor) -> Self {
-        Self::Rgb {
-            r: value.0,
-            g: value.1,
-            b: value.2,
-        }
-    }
-}
-
-impl From<&UniColor> for crossterm::style::Color {
-    fn from(value: &UniColor) -> Self {
-        Self::Rgb {
-            r: value.0,
-            g: value.1,
-            b: value.2,
-        }
     }
 }
