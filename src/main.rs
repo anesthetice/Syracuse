@@ -1,8 +1,5 @@
 use crossterm::{event, style::Stylize};
-use std::{
-    io::Write,
-    time::{Duration, Instant},
-};
+use std::time::{Duration, Instant};
 
 mod animation;
 use animation::{Animation, SimpleAnimation};
@@ -19,7 +16,7 @@ use error::Error;
 mod utils;
 use utils::{clean_backups, expand_date_backwards, parse_date, user_choice};
 
-use crate::utils::{enter_clean_input_mode, exit_clean_input_mode};
+use crate::utils::{duration_as_pretty_string, enter_clean_input_mode, exit_clean_input_mode};
 
 #[allow(mutable_transmutes)]
 fn main() -> anyhow::Result<()> {
@@ -91,6 +88,10 @@ fn main() -> anyhow::Result<()> {
         err
     })?;
     entries.clean();
+    entries.save().map_err(|err| {
+        error!("failed to save entries after running clean");
+        err
+    })?;
     entries.backup().map_err(|err| {
         error!("failed to backup entries");
         err
@@ -164,6 +165,7 @@ fn main() -> anyhow::Result<()> {
                 let start = Instant::now();
                 let mut instant = start;
                 let mut save_instant = start;
+                let save_duration = Duration::from_secs_f64(config.save_period);
 
                 let mut stdout = std::io::stdout();
                 let mut frame: usize = 0;
@@ -173,11 +175,8 @@ fn main() -> anyhow::Result<()> {
                     SimpleAnimation::play(
                         &mut stdout,
                         &mut frame,
-                        &instant.duration_since(start).as_secs_f64(),
+                        &duration_as_pretty_string(&instant.duration_since(start)),
                     );
-                    let _ = stdout
-                        .flush()
-                        .map_err(|err| warn!("failed to flush to stdout\n{err}"));
                     if event::poll(std::time::Duration::from_secs_f64(0.1))? {
                         if let event::Event::Key(key) = event::read()? {
                             if key.kind == event::KeyEventKind::Press
@@ -188,20 +187,19 @@ fn main() -> anyhow::Result<()> {
                             }
                         }
                     }
-                    let new_instant = Instant::now();
-                    entry.update_bloc_add(&date, new_instant.duration_since(instant));
-                    instant = new_instant;
-                    if instant.duration_since(save_instant)
-                        > Duration::from_secs_f64(config.save_period)
-                    {
+                    if instant.duration_since(save_instant) > save_duration {
                         entries.save().map_err(|err| {
                             error!("failed to save progress");
                             err
                         })?;
-                        save_instant = new_instant;
+                        save_instant = instant;
                     }
+                    let new_instant = Instant::now();
+                    entry.update_bloc_add(&date, new_instant.duration_since(instant));
+                    instant = new_instant;
                 }
                 exit_clean_input_mode();
+                println!();
                 entries.save().map_err(|err| {
                     error!("failed to save progress");
                     err

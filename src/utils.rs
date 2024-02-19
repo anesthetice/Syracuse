@@ -203,3 +203,19 @@ pub fn parse_date(input: &str) -> Option<time::Date> {
     )
     .ok()
 }
+
+pub fn duration_as_pretty_string(duration: &std::time::Duration) -> String {
+    let mut main = duration.as_secs();
+    let remainder = duration.subsec_millis();
+
+    let hours = main / 3600;
+    main %= 3600;
+
+    let minutes = main / 60;
+    main %= 60;
+
+    format!(
+        "{:0>2}:{:0>2}:{:0>2}.{:0>3}",
+        hours, minutes, main, remainder
+    )
+}

@@ -15,19 +15,22 @@ impl Animation for SimpleAnimation {
             *frame = 0;
         }
         let frame_to_draw = match *frame {
-            0 => format!("\r|  {:.3}  |      ", focus),
-            1 => format!("\r|  {:.3}  |      ", focus),
-            2 => format!("\r/  {:.3}  /      ", focus),
-            3 => format!("\r/  {:.3}  /      ", focus),
-            4 => format!("\r-  {:.3}  -      ", focus),
-            5 => format!("\r-  {:.3}  -      ", focus),
-            6 => format!("\r\\  {:.3}  \\      ", focus),
-            7 => format!("\r\\  {:.3}  \\      ", focus),
+            0 => format!("\r|  {}  |      ", focus),
+            1 => format!("\r|  {}  |      ", focus),
+            2 => format!("\r/  {}  /      ", focus),
+            3 => format!("\r/  {}  /      ", focus),
+            4 => format!("\r-  {}  -      ", focus),
+            5 => format!("\r-  {}  -      ", focus),
+            6 => format!("\r\\  {}  \\      ", focus),
+            7 => format!("\r\\  {}  \\      ", focus),
             _ => unreachable!(),
         };
         let _ = stdout
             .write_all(frame_to_draw.as_bytes())
             .map_err(|err| warn!("animation issue\n{err}"));
+        let _ = stdout
+            .flush()
+            .map_err(|err| warn!("failed to flush to stdout\n{err}"));
         *frame += 1;
     }
 }

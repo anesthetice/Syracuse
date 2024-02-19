@@ -8,6 +8,8 @@ use std::{
     time::Duration,
 };
 
+use crate::utils::duration_as_pretty_string;
+
 #[derive(Debug, Default, Serialize, Deserialize)]
 pub struct Entries(Vec<Entry>);
 
@@ -190,22 +192,22 @@ impl std::fmt::Display for Blocs {
             self.iter()
                 .sorted_by(|(a, _), (b, _)| { a.cmp(b) })
                 .enumerate()
-                .fold(String::new(), |acc, (idx, x)| {
+                .fold(String::new(), |acc, (idx, (date, duration))| {
                     if self.len() != idx + 1 {
                         acc + &format!(
                             "{:0>2}/{:0>2}/{:0>4}: ",
-                            x.0.day(),
-                            x.0.month() as u8,
-                            x.0.year()
-                        ) + &format!("{}", x.1.as_secs_f64())
+                            date.day(),
+                            date.month() as u8,
+                            date.year()
+                        ) + &duration_as_pretty_string(duration)
                             + ", "
                     } else {
                         acc + &format!(
                             "{:0>2}/{:0>2}/{:0>4}: ",
-                            x.0.day(),
-                            x.0.month() as u8,
-                            x.0.year()
-                        ) + &format!("{}", x.1.as_secs_f64())
+                            date.day(),
+                            date.month() as u8,
+                            date.year()
+                        ) + &duration_as_pretty_string(duration)
                     }
                 })
         )
