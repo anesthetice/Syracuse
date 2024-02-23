@@ -3,7 +3,7 @@ use crossterm::{
     style::Stylize,
     terminal::{disable_raw_mode, enable_raw_mode},
 };
-use std::io::{stdin, stdout, Read, Write};
+use std::io::{stdin, stdout, Write};
 
 use crate::data::internal::Entries;
 
@@ -125,7 +125,7 @@ where
     let mut input: String = String::new();
     print!("> ");
     let _ = stdout().flush();
-    stdin().read_to_string(&mut input).ok()?;
+    stdin().read_line(&mut input).ok()?;
     choices
         .get(input.trim().parse::<usize>().ok()?.checked_sub(1)?)
         .copied()

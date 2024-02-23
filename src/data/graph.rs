@@ -5,16 +5,26 @@ use time::Date;
 use super::internal::{Entries, Entry};
 
 pub trait Graph {
-    const C0: RGBColor = RGBColor(245, 224, 220);
-    const C1: RGBColor = RGBColor(245, 124, 154);
-    const C2: RGBColor = RGBColor(230, 179, 150);
-    const C3: RGBColor = RGBColor(146, 230, 141);
-    const C4: RGBColor = RGBColor(116, 189, 250);
-    const EXCLUSIVE_MAX_COLOR_IDX: usize = 5;
+    // amaranth pink
+    const C0: RGBColor = RGBColor(243, 167, 186);
+    // cocktail red
+    const C1: RGBColor = RGBColor(253, 109, 114);
+    // deep saffron
+    const C2: RGBColor = RGBColor(255, 150, 58);
+    // corn
+    const C3: RGBColor = RGBColor(250, 234, 93);
+    // mountain lake green
+    const C4: RGBColor = RGBColor(117, 185, 150);
+    // ceulean
+    const C5: RGBColor = RGBColor(0, 143, 190);
+
+    const EXCLUSIVE_MAX_COLOR_IDX: usize = 6;
     const FOREGROUND_COLOR_RGB: RGBColor = RGBColor(205, 214, 244);
     const FOREGROUND_COLOR_RGBA: RGBAColor = RGBAColor(205, 214, 244, 1.0);
     const BACKGROUND_COLOR: RGBColor = RGBColor(30, 30, 46);
     const SUM_LINE_COLROR: RGBColor = RGBColor(166, 173, 200);
+    const BOLD_LINE_COLOR: RGBColor = RGBColor(84, 87, 108);
+    const LIGHT_LINE_COLOR: RGBColor = RGBColor(49, 50, 68);
     fn generate_png(&self, dates: Vec<Date>) -> anyhow::Result<()>;
 }
 
@@ -85,6 +95,7 @@ impl Graph for Entries {
             .collect();
 
         superpoints.retain(|(_, points)| !points.is_empty());
+        superpoints.reverse();
 
         let max_y = sum_points
             .iter()
@@ -119,21 +130,20 @@ impl Graph for Entries {
                 None => String::with_capacity(0),
             })
             .x_labels(dates.len())
+            .bold_line_style(Self::BOLD_LINE_COLOR)
+            .light_line_style(Self::LIGHT_LINE_COLOR)
             .draw()?;
 
         ctx.draw_series(LineSeries::new(
             sum_points.into_iter(),
-            Self::SUM_LINE_COLROR,
+            Self::SUM_LINE_COLROR.stroke_width(2),
         ))?;
 
         let mut color_idx: usize = 0;
 
-        let colors = [Self::C0, Self::C1, Self::C2, Self::C3, Self::C4];
+        let colors = [Self::C0, Self::C1, Self::C2, Self::C3, Self::C4, Self::C5];
 
         while let Some((name, points)) = superpoints.pop() {
-            if color_idx == Self::EXCLUSIVE_MAX_COLOR_IDX {
-                break;
-            }
             ctx.draw_series(
                 points
                     .into_iter()
@@ -143,6 +153,9 @@ impl Graph for Entries {
             .legend(move |point| TriangleMarker::new(point, 6, colors[color_idx]));
 
             color_idx += 1;
+            if color_idx == Self::EXCLUSIVE_MAX_COLOR_IDX {
+                break;
+            }
         }
         color_idx = 0;
 
@@ -156,6 +169,25 @@ impl Graph for Entries {
             .legend(move |point| Circle::new(point, 6, colors[color_idx].stroke_width(2)));
 
             color_idx += 1;
+            if color_idx == Self::EXCLUSIVE_MAX_COLOR_IDX {
+                break;
+            }
+        }
+        color_idx = 0;
+
+        while let Some((name, points)) = superpoints.pop() {
+            ctx.draw_series(
+                points
+                    .into_iter()
+                    .map(|point| Cross::new(point, 6, colors[color_idx].stroke_width(2))),
+            )?
+            .label(name)
+            .legend(move |point| Cross::new(point, 6, colors[color_idx].stroke_width(2)));
+
+            color_idx += 1;
+            if color_idx == Self::EXCLUSIVE_MAX_COLOR_IDX {
+                break;
+            }
         }
 
         ctx.configure_series_labels()
@@ -252,6 +284,8 @@ impl Graph for Entry {
                 None => String::with_capacity(0),
             })
             .x_labels(dates.len())
+            .bold_line_style(Self::BOLD_LINE_COLOR)
+            .light_line_style(Self::LIGHT_LINE_COLOR)
             .draw()?;
 
         ctx.draw_series(

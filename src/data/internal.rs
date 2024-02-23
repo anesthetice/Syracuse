@@ -1,6 +1,5 @@
 use itertools::Itertools;
-use serde::{Deserialize, Serialize};
-use serde_with::serde_as;
+use serde::{de::Visitor, Deserialize, Serialize};
 use std::{
     collections::HashMap,
     io::{Read, Write},
@@ -8,7 +7,7 @@ use std::{
     time::Duration,
 };
 
-use crate::utils::duration_as_pretty_string;
+use crate::utils::{duration_as_pretty_string, parse_date};
 
 #[derive(Debug, Default, Serialize, Deserialize)]
 pub struct Entries(Vec<Entry>);
@@ -127,7 +126,7 @@ impl Entry {
         self.names.contains(other_name)
     }
 
-    pub fn update_bloc_add(&mut self, date: &time::Date, additional_duration: Duration) {
+    pub fn update_bloc_add(&mut self, date: &SyrDate, additional_duration: Duration) {
         if let Some(duration) = self.blocs.get_mut(date) {
             duration.add_assign(additional_duration);
         } else {
@@ -135,7 +134,7 @@ impl Entry {
         }
     }
 
-    pub fn update_bloc_sub(&mut self, date: &time::Date, reduced_duration: Duration) {
+    pub fn update_bloc_sub(&mut self, date: &SyrDate, reduced_duration: Duration) {
         if let Some(duration) = self.blocs.get_mut(date) {
             if *duration > reduced_duration {
                 duration.sub_assign(reduced_duration);
@@ -167,12 +166,11 @@ impl Entry {
     }
 }
 
-#[serde_as]
 #[derive(Debug, Default, PartialEq, Serialize, Deserialize)]
-pub struct Blocs(#[serde_as(as = "Vec<(_, _)>")] HashMap<time::Date, Duration>);
+pub struct Blocs(HashMap<SyrDate, Duration>);
 
 impl std::ops::Deref for Blocs {
-    type Target = HashMap<time::Date, Duration>;
+    type Target = HashMap<SyrDate, Duration>;
     fn deref(&self) -> &Self::Target {
         &self.0
     }
@@ -214,9 +212,90 @@ impl std::fmt::Display for Blocs {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct SyrDate(time::Date);
+
+impl SyrDate {
+    pub fn new(date: time::Date) -> Self {
+        Self(date)
+    }
+}
+
+impl From<time::Date> for SyrDate {
+    fn from(value: time::Date) -> Self {
+        Self::new(value)
+    }
+}
+
+impl Serialize for SyrDate {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        format!(
+            "{:0>2}/{:0>2}/{:0>4}",
+            self.day(),
+            self.month() as u8,
+            self.year(),
+        )
+        .serialize(serializer)
+    }
+}
+
+impl<'a> Deserialize<'a> for SyrDate {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'a>,
+    {
+        deserializer.deserialize_any(SyrDateVisitor)
+    }
+}
+
+impl std::ops::Deref for SyrDate {
+    type Target = time::Date;
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl std::ops::DerefMut for SyrDate {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
+
+struct SyrDateVisitor;
+
+impl<'a> Visitor<'a> for SyrDateVisitor {
+    type Value = SyrDate;
+
+    fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+        formatter.write_str("a valid string : dd/mm/yyyy")
+    }
+
+    fn visit_str<E>(self, v: &str) -> Result<Self::Value, E>
+    where
+        E: serde::de::Error,
+    {
+        parse_date(v)
+            .map(SyrDate::new)
+            .ok_or(E::custom("invalid date, must be dd/mmy/yyyy"))
+    }
+
+    fn visit_string<E>(self, v: String) -> Result<Self::Value, E>
+    where
+        E: serde::de::Error,
+    {
+        parse_date(&v)
+            .map(SyrDate::new)
+            .ok_or(E::custom("invalid date, must be dd/mmy/yyyy"))
+    }
+}
+
 #[cfg(test)]
 mod test {
-    use super::{Blocs, Entries, Entry};
+    use super::{Blocs, Entries, Entry, SyrDate};
+    use crate::utils::parse_date;
 
     #[test]
     fn get_score_1() {
@@ -285,5 +364,20 @@ mod test {
         ));
 
         assert_eq!(entries.search(search_key, threshold).len(), 0)
+    }
+    #[test]
+    fn syrdate_serialize() {
+        let syrdate = SyrDate::new(parse_date("01/12/2023").unwrap());
+        assert_eq!(serde_json::to_string(&syrdate).unwrap(), "\"01/12/2023\"")
+    }
+    #[test]
+    fn syrdate_deserialize() {
+        let syrdate = SyrDate::new(parse_date("01/12/2023").unwrap());
+        let string_to_deserialize = "\"01/12/2023\"";
+
+        assert_eq!(
+            serde_json::from_str::<SyrDate>(string_to_deserialize).unwrap(),
+            syrdate
+        )
     }
 }

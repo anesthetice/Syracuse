@@ -1,6 +1,6 @@
 [package]
-name = "Syracuse"
-version = "1.1.0"
+name = "syracuse"
+version = "1.2.0"
 edition = "2021"
 
 [dependencies]
@@ -11,8 +11,11 @@ itertools       =   {version = "0.12.*"}
 plotters        =   {version = "0.3.*"}
 serde           =   {version = "1.0.*", features = ["derive"]}
 serde_json      =   {version = "1.0.*"}
-serde_with      =   {version = "3.6.*"}
 time            =   {version = "0.3.*", features = ["serde"]}
 
 [profile.release]
 opt-level = 3
+lto = true
+panic = "abort"
+strip = "symbols"
+codegen-units = 1

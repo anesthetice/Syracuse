@@ -9,7 +9,7 @@ use config::Config;
 mod data;
 use data::{
     graph::Graph,
-    internal::{Blocs, Entries, Entry},
+    internal::{Blocs, Entries, Entry, SyrDate},
 };
 mod error;
 use error::Error;
@@ -65,7 +65,7 @@ fn main() -> anyhow::Result<()> {
 
     let config = Config::new();
 
-    let date: time::Date = {
+    let date: SyrDate = {
         match time::UtcOffset::from_hms(
             config.local_offset[0],
             config.local_offset[1],
@@ -73,10 +73,11 @@ fn main() -> anyhow::Result<()> {
         ) {
             Ok(offset) => time::OffsetDateTime::now_utc()
                 .replace_offset(offset)
-                .date(),
+                .date()
+                .into(),
             Err(err) => {
                 warn!("failed to create UtcOffset with the provided LOCAL_OFFSET\n{err}");
-                time::OffsetDateTime::now_utc().date()
+                time::OffsetDateTime::now_utc().date().into()
             }
         }
     };
@@ -210,7 +211,7 @@ fn main() -> anyhow::Result<()> {
 
     if let Some(argmatches) = matches.subcommand_matches("update") {
         let specified_date = match argmatches.get_one::<String>("date") {
-            Some(slice) => parse_date(slice).unwrap_or(date),
+            Some(slice) => parse_date(slice).map(SyrDate::new).unwrap_or(date),
             None => date,
         };
         if let Some(mat) = argmatches.get_one::<String>("entry") {

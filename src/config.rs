@@ -2,7 +2,7 @@ use crossterm::style::Stylize;
 use serde::{Deserialize, Serialize};
 use std::io::{Read, Write};
 
-use crate::warn;
+use crate::{data::internal::SyrDate, warn};
 
 #[derive(Clone, Serialize, Deserialize)]
 pub struct Config {
@@ -10,7 +10,7 @@ pub struct Config {
     pub local_offset: [i8; 3],
     pub backup_expiration_time: u64,
     pub save_period: f64,
-    pub graph_specific_end_date: Option<time::Date>,
+    pub graph_specific_end_date: Option<SyrDate>,
     pub graph_num_of_days_back: u16,
 }
 
