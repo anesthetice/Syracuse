@@ -1,12 +1,13 @@
 [package]
 name = "syracuse"
-version = "1.2.0"
+version = "2.0.0"
 edition = "2021"
 
 [dependencies]
 anyhow          =   {version = "1.0.*"}
 clap            =   {version = "4.5.*", features = ["cargo"]}
 crossterm       =   {version = "0.27.*", features = ["serde"]}
+directories     =   {version = "5.0.1"}
 itertools       =   {version = "0.12.*"}
 plotters        =   {version = "0.3.*"}
 serde           =   {version = "1.0.*", features = ["derive"]}
