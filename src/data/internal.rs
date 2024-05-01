@@ -1,9 +1,18 @@
 use anyhow::Context;
+use crossterm::style::Stylize;
+use crate::warn;
 
 use super::syrtime::{Blocs, SyrDate};
 use std::{fs, io::{Read, Write}, path::Path};
 
+
 pub struct Entries(Vec<Entry>);
+
+impl From<Vec<Entry>> for Entries {
+    fn from(value: Vec<Entry>) -> Self {
+        Self(value)
+    }
+}
 
 impl std::ops::Deref for Entries {
     type Target = Vec<Entry>;
@@ -15,6 +24,37 @@ impl std::ops::Deref for Entries {
 impl std::ops::DerefMut for Entries {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.0
+    }
+}
+
+impl Entries {
+    pub fn load() -> anyhow::Result<Self> {
+        Ok(
+        std::path::Path::read_dir(crate::dirs::Dirs::get().data_dir())?
+            .flat_map(|res| {
+                match res {
+                    Ok(entry) => {
+                        let path = entry.path();
+                        if path.extension()?.to_str()? == "json" {
+                            match Entry::from_file(&path) {
+                                Ok(entry) => Some(entry),
+                                Err(error) => {
+                                    warn!("{}", error);
+                                    None
+                                }
+                            }
+                        } else {
+                            None
+                        }
+                    },
+                    Err(error) => {
+                        warn!("{}", error);
+                        None
+                    }
+                }
+            })
+            .collect::<Vec<Entry>>().into()
+        )
     }
 }
 
@@ -51,13 +91,14 @@ impl Entry {
         Ok(Self { name, aliases, blocs: serde_json::from_slice(&buffer)? })   
     }
 
-    pub fn to_file(&self, path: &Path) -> anyhow::Result<()> {
+    pub fn to_file(&self) -> anyhow::Result<()> {
         let mut filename = self.name.clone();
-        filename.push_str("_");
-        filename.push_str(&self.aliases.join("_"));
+        filename.push_str("-·-");
+        filename.push_str(&self.aliases.join("-·-"));
         filename.push_str(".json");
 
-        let filepath = path.join(filename);
+        let filepath = crate::dirs::Dirs::get().data_dir().join(filename);
+        dbg!(filepath.clone());
         let data = serde_json::to_vec_pretty(&self.blocs)?;
 
         fs::OpenOptions::new()

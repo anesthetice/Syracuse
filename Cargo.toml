@@ -17,6 +17,6 @@ time            =   {version = "0.3.*", features = ["serde"]}
 [profile.release]
 opt-level = 3
 lto = true
-panic = "abort"
+panic = "unwind"
 strip = "symbols"
 codegen-units = 1

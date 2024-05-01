@@ -3,7 +3,9 @@ use crossterm::style::Stylize;
 #[macro_export]
 macro_rules! info {
     ($($args:tt)*) => {
-        eprintln!("[ {} ] {}", "INFO".cyan(), format_args!($($args)*))
+        if crate::config::Config::get().debug {
+            eprintln!("[ {} ] {}", "INFO".cyan(), format_args!($($args)*))
+        }
     };
 }
 

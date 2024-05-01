@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, sync::OnceLock};
 use anyhow::Context;
 use serde::{Serialize, Deserialize, de::Visitor};
 use itertools::Itertools;
@@ -72,19 +72,17 @@ impl SyrDate {
     pub fn new(date: time::Date) -> Self {
         Self(date)
     }
-    pub fn to_string(&self) -> String {
-        format!(
-            "{:0>2}/{:0>2}/{:0>4}",
-            self.day(),
-            self.month() as u8,
-            self.year(),
-        )
-    }
 }
 
 impl std::fmt::Display for SyrDate {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.to_string())
+        write!(
+            f, 
+            "{:0>2}/{:0>2}/{:0>4}",
+            self.day(),
+            self.month() as u8,
+            self.year()
+        )
     }
 }
 

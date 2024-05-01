@@ -1,20 +1,21 @@
-
 mod algorithms;
+mod cli;
 mod config;
 mod data;
+mod dirs;
 mod error;
 mod graph;
 mod utils;
 
 use anyhow::Context;
-use config::CONFIG;
+use data::internal::Entries;
 use directories::ProjectDirs;
-use crate::config::Config;
-use crate::data::internal::Entry;
 
+use crate::data::internal::Entry;
 use crate::algorithms::*;
 
 fn main() -> anyhow::Result<()> {
+    // start of initialization
     let dirs = ProjectDirs::from("", "", "syracuse").context("failed to get project directories")?;
     if !dirs.config_dir().exists() {
         std::fs::create_dir(dirs.config_dir()).context("failed to create a config directory for the application")?
@@ -22,20 +23,14 @@ fn main() -> anyhow::Result<()> {
     if !dirs.data_dir().exists() {
         std::fs::create_dir(dirs.data_dir()).context("failed to create a data directory for the application")?
     }
-    
+
     // this should never fail, unwrapping is fine
-    CONFIG.set(crate::config::Config::load(&dirs.config_dir().join("syracuse.config"))).unwrap();
+    crate::config::CONFIG.set(crate::config::Config::load(&dirs.config_dir().join("syracuse.config"))).unwrap();
+    crate::dirs::DIRS.set(dirs).unwrap();
+    // end of initialization
 
-    let entry = Entry::new("MATH-201".to_string(), vec!["ANALYSE".to_string(), "HOLOMORPH".to_string()]);
-
-    entry.to_file(dirs.data_dir())?;
-
-    dbg!(needleman_wunsch("ANANUMSDHSODFOSJDP", "VA"));
-    dbg!(needleman_wunsch("ANUM", "ANANUM"));
-
-    dbg!(smith_waterman("ANANUM", "A"));
-    dbg!(smith_waterman("ANANUM", "NANA"));
-    
+    let entries = Entries::load()?;
+    println!("{}", entries.len());
 
     Ok(())
 }
