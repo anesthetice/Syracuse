@@ -17,7 +17,7 @@ pub struct Config {
     // local utc offset to get accurate dates [HH, MM, SS]
     // e.g. western europe : [1,0,0] or [2,0,0] generally depending on daylight saving time
     // you will have to manually change the config to account for changes in your timezone
-    pub local_offset: [u8; 3],
+    pub local_offset: [i8; 3],
     // smith-waterman and needlman-wunsch algorithm weight
     pub sw_nw_ratio: f64,
     // used for sw and nw algorithms

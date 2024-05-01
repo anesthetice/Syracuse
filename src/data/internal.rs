@@ -65,6 +65,29 @@ pub struct Entry {
     blocs: Blocs,
 }
 
+impl std::fmt::Debug for Entry {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}; {}\n―――――――――――――――\n{}",
+            self.name,
+            self.aliases.join(", "),
+            self.blocs
+        )
+    }
+}
+
+impl std::fmt::Display for Entry {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}; {}",
+            self.name,
+            self.aliases.join(", ")
+        )
+    }
+}
+
 impl Entry {
     pub fn new(name: String, aliases: Vec<String>) -> Self {
         Self { name, aliases, blocs: Blocs::default() }
@@ -91,24 +114,35 @@ impl Entry {
         Ok(Self { name, aliases, blocs: serde_json::from_slice(&buffer)? })   
     }
 
-    pub fn to_file(&self) -> anyhow::Result<()> {
-        let mut filename = self.name.clone();
-        filename.push_str("-·-");
-        filename.push_str(&self.aliases.join("-·-"));
-        filename.push_str(".json");
+    pub fn get_filestem(&self) -> String {
+        let separator: &str = crate::config::Config::get().entry_file_name_separtor.as_str();
+        let mut filestem = self.name.clone();
+        filestem.push_str(separator);
+        filestem.push_str(&self.aliases.join(separator));
+        filestem
+    }
 
-        let filepath = crate::dirs::Dirs::get().data_dir().join(filename);
-        dbg!(filepath.clone());
+    pub fn get_filepath(&self) -> std::path::PathBuf {
+        crate::dirs::Dirs::get()
+            .data_dir()
+            .join(self.get_filestem() + ".json")
+    }
+
+    pub fn save_to_file(&self) -> anyhow::Result<()> {
         let data = serde_json::to_vec_pretty(&self.blocs)?;
 
         fs::OpenOptions::new()
             .create(true)
             .write(true)
             .truncate(true)
-            .open(&filepath)?
+            .open(self.get_filepath())?
             .write_all(&data)?;
 
         Ok(())
+    }
+
+    pub fn delete(self) -> anyhow::Result<()> {
+        Ok(std::fs::remove_file(self.get_filepath())?)
     }
 
     fn increase_bloc_duration(&mut self, date: &SyrDate, duration: u32) {
