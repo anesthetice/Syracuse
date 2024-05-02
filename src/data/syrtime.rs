@@ -3,12 +3,12 @@ use anyhow::Context;
 use serde::{Serialize, Deserialize, de::Visitor};
 use itertools::Itertools;
 
-// u32 represents miliseconds, 8.64e7 miliseconds per day so u32 is perfectly fine
+// u64 since duration translates to u64 and not u32
 #[derive(Clone, Default, Serialize, Deserialize)]
-pub(super) struct Blocs (HashMap<SyrDate, u32>);
+pub(super) struct Blocs (HashMap<SyrDate, u64>);
 
 impl std::ops::Deref for Blocs {
-    type Target = HashMap<SyrDate, u32>;
+    type Target = HashMap<SyrDate, u64>;
     fn deref(&self) -> &Self::Target {
         &self.0
     }
@@ -20,7 +20,7 @@ impl std::ops::DerefMut for Blocs {
     }
 }
 
-fn ms_to_pretty_string(mut milliseconds: u32) -> String {
+fn ms_to_pretty_string(mut milliseconds: u64) -> String {
     let hours = milliseconds / 3600000;
     milliseconds %= 3600000;
     let minutes = milliseconds / 60000;

@@ -213,7 +213,7 @@ impl Entry {
         filestem
     }
 
-    pub fn get_filepath(&self) -> std::path::PathBuf {
+    fn get_filepath(&self) -> std::path::PathBuf {
         crate::dirs::Dirs::get()
             .data_dir()
             .join(self.get_filestem() + ".json")
@@ -236,13 +236,13 @@ impl Entry {
         Ok(std::fs::remove_file(self.get_filepath())?)
     }
 
-    fn increase_bloc_duration(&mut self, date: &SyrDate, duration: u32) {
+    pub fn increase_bloc_duration(&mut self, date: &SyrDate, duration: u64) {
         if let Some(val) = self.blocs.get_mut(date) {
             *val += duration
         }
     }
 
-    fn decrease_bloc_duration(&mut self, date: &SyrDate, duration: u32) {
+    pub fn decrease_bloc_duration(&mut self, date: &SyrDate, duration: u64) {
         if let Some(val) = self.blocs.get_mut(date) {
             if duration > *val {
                 *val = 0
