@@ -47,6 +47,9 @@ fn main() -> anyhow::Result<()> {
 
     let entries = Entries::load()?;
 
+    println!("==> {}", entries.choose("CHEMM").unwrap());
+
+    /*
     let command = cli::cli();
     let matches = command.get_matches();
 
@@ -76,6 +79,6 @@ fn main() -> anyhow::Result<()> {
             }
         }
     }
-    
+    */
     Ok(())
 }

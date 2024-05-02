@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 use std::{io::{Read, Write}, sync::OnceLock};
 use crossterm::style::Stylize;
 
-use crate::{info, warn};
+use crate::warn;
 
 pub static CONFIG: OnceLock<Config> = OnceLock::new(); 
 
@@ -18,6 +18,8 @@ pub struct Config {
     // e.g. western europe : [1,0,0] or [2,0,0] generally depending on daylight saving time
     // you will have to manually change the config to account for changes in your timezone
     pub local_offset: [i8; 3],
+    // threshold for results to be considered
+    pub search_threshold: f64,
     // smith-waterman and needlman-wunsch algorithm weight
     pub sw_nw_ratio: f64,
     // used for sw and nw algorithms
@@ -35,6 +37,7 @@ impl Default for Config {
             entry_file_name_separtor: "-·-".to_string(),
             autosave_period: 30,
             local_offset: [0, 0, 0],
+            search_threshold: 0.0,
             sw_nw_ratio: 0.6,
             match_score: 2,
             mismatch_penalty: -1,

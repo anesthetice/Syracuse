@@ -4,7 +4,7 @@ use serde::{Serialize, Deserialize, de::Visitor};
 use itertools::Itertools;
 
 // u32 represents miliseconds, 8.64e7 miliseconds per day so u32 is perfectly fine
-#[derive(Default, Serialize, Deserialize)]
+#[derive(Clone, Default, Serialize, Deserialize)]
 pub(super) struct Blocs (HashMap<SyrDate, u32>);
 
 impl std::ops::Deref for Blocs {

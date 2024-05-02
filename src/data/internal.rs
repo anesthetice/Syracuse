@@ -1,9 +1,10 @@
 use anyhow::Context;
-use crossterm::style::Stylize;
-use crate::warn;
+use crossterm::{event, style::Stylize};
+use itertools::Itertools;
+use crate::{algorithms, info, utils::{enter_clean_input_mode, exit_clean_input_mode}, warn};
 
 use super::syrtime::{Blocs, SyrDate};
-use std::{fs, io::{Read, Write}, path::Path};
+use std::{fmt::format, fs, io::{Read, Write}, path::Path};
 
 
 pub struct Entries(Vec<Entry>);
@@ -56,9 +57,98 @@ impl Entries {
             .collect::<Vec<Entry>>().into()
         )
     }
+    pub fn choose(&self, query: &str) -> Option<Entry> {
+        let choices: Vec<&Entry> = self.iter()
+            .map(|entry| {
+                (entry.aliases
+                    .iter()
+                    .chain(std::iter::once(&entry.name))
+                    .map(|string| {
+                        let sw_factor = crate::config::Config::get().sw_nw_ratio;
+                        sw_factor * algorithms::smith_waterman(string, query)
+                        + (1.0-sw_factor) * algorithms::needleman_wunsch(string, query)
+                    })
+                    .fold(-1.0, |acc, x| {if x > acc {x} else {acc}}),
+                entry)
+            })
+            .filter(|(score, entry)| {
+                info!("{:<15}:   {:.3}", entry.name, score);
+                *score >= crate::config::Config::get().search_threshold
+            })
+            .sorted_by(|(a, _), (b, _)| {b.partial_cmp(a).unwrap_or(std::cmp::Ordering::Equal)})
+            .take(3)
+            .map(|(_, entry)| {entry})
+            .collect();
+        
+        match choices.len() {
+            0 => None,
+            1 => Self::choose_single(choices[0]),
+            2.. => Self::choose_multiple(&choices)
+        }
+    }
+    fn choose_single(choice: &Entry) -> Option<Entry> {
+        println!("{} [Y/n]", choice);
+        enter_clean_input_mode();
+        loop {
+            if event::poll(std::time::Duration::from_secs_f64(0.1)).unwrap() {
+                if let event::Event::Key(key) = event::read().ok()? {
+                    if key.kind == event::KeyEventKind::Press {
+                        match key.code {
+                            event::KeyCode::Esc
+                            | event::KeyCode::Char('q')
+                            | event::KeyCode::Char('n') => {
+                                exit_clean_input_mode();
+                                break None;
+                            }
+                            event::KeyCode::Char('y') | event::KeyCode::Enter => {
+                                exit_clean_input_mode();
+                                break Some(choice.clone());
+                            }
+                            _ => {}
+                        }
+                    }
+                }
+            }
+        }
+    }
+    fn choose_multiple(choices: &[&Entry]) -> Option<Entry> {
+        for (idx, choice) in choices.iter().enumerate() {
+            println!("{}. {}", idx + 1, choice);
+        }
+        enter_clean_input_mode();
+        loop {
+            if event::poll(std::time::Duration::from_secs_f64(0.1)).unwrap() {
+                if let event::Event::Key(key) = event::read().ok()? {
+                    if key.kind == event::KeyEventKind::Press {
+                        match key.code {
+                            event::KeyCode::Esc
+                            | event::KeyCode::Char('q')
+                            | event::KeyCode::Char('n') => {
+                                exit_clean_input_mode();
+                                break None;
+                            }
+                            event::KeyCode::Enter => {
+                                exit_clean_input_mode();
+                                break Some(choices[0].clone());
+                            }
+                            event::KeyCode::Char(chr) => {
+                                if chr.is_numeric() {
+                                    if let Ok(idx) = chr.to_string().parse::<usize>() {
+                                        exit_clean_input_mode();
+                                        break Some(choices[idx - 1].clone());
+                                    }
+                                }
+                            }
+                            _ => {}
+                        }
+                    }
+                }
+            }
+        }
+    }
 }
 
-
+#[derive(Clone)]
 pub struct Entry {
     name: String,
     aliases: Vec<String>,
@@ -94,11 +184,12 @@ impl Entry {
     }
 
     fn from_file(filepath: &Path) -> anyhow::Result<Self> {
+        let separator: &str = crate::config::Config::get().entry_file_name_separtor.as_str();
         let file_name = filepath.file_stem().with_context(|| format!("failed to obtain filestem of : {}", filepath.display()))?
             .to_str().with_context(|| format!("filename OsStr cannot be converted to valid utf-8 : {}", filepath.display()))?;
         let (name, aliases) : (String, Vec<String>) = {
-            if let Some((name, aliases)) = file_name.split_once('_') {
-                (name.to_string(), aliases.split('_').map(|s| s.to_string()).collect())
+            if let Some((name, aliases)) = file_name.split_once(separator) {
+                (name.to_string(), aliases.split(separator).map(|s| s.to_string()).collect())
             } else {
                 (file_name.to_string(), Vec::new())
             }
