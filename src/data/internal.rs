@@ -4,7 +4,7 @@ use itertools::Itertools;
 use crate::{algorithms, info, utils::{enter_clean_input_mode, exit_clean_input_mode}, warn};
 
 use super::syrtime::{Blocs, SyrDate};
-use std::{fmt::format, fs, io::{Read, Write}, path::Path};
+use std::{io::{Read, Write}, path::Path};
 
 
 pub struct Entries(Vec<Entry>);
@@ -222,7 +222,7 @@ impl Entry {
     pub fn save_to_file(&self) -> anyhow::Result<()> {
         let data = serde_json::to_vec_pretty(&self.blocs)?;
 
-        fs::OpenOptions::new()
+        std::fs::OpenOptions::new()
             .create(true)
             .write(true)
             .truncate(true)
@@ -236,13 +236,15 @@ impl Entry {
         Ok(std::fs::remove_file(self.get_filepath())?)
     }
 
-    pub fn increase_bloc_duration(&mut self, date: &SyrDate, duration: u64) {
+    pub fn increase_bloc_duration(&mut self, date: &SyrDate, duration: u128) {
         if let Some(val) = self.blocs.get_mut(date) {
             *val += duration
+        } else {
+            self.blocs.insert(date.clone(), duration);
         }
     }
 
-    pub fn decrease_bloc_duration(&mut self, date: &SyrDate, duration: u64) {
+    pub fn decrease_bloc_duration(&mut self, date: &SyrDate, duration: u128) {
         if let Some(val) = self.blocs.get_mut(date) {
             if duration > *val {
                 *val = 0

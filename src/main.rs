@@ -15,7 +15,7 @@ use data::{internal::{Entries, Entry}, syrtime::SyrDate};
 use crossterm::{event, style::Stylize};
 use directories::ProjectDirs;
 
-use crate::utils::{enter_clean_input_mode, exit_clean_input_mode};
+use crate::{animation::Animation, data::syrtime::ns_to_pretty_string, utils::{enter_clean_input_mode, exit_clean_input_mode}};
 
 fn main() -> anyhow::Result<()> {
     // start of initialization
@@ -52,7 +52,6 @@ fn main() -> anyhow::Result<()> {
     let entries = Entries::load()?;
     // end of initialization
 
-    /*
     let command = cli::cli();
     let matches = command.get_matches();
 
@@ -96,24 +95,27 @@ fn main() -> anyhow::Result<()> {
         if let Some(mat) = argmat.get_one::<String>("entry") {
             let name = mat.to_uppercase();
             if let Some(mut entry) = entries.choose(name.as_str()) {
-
-                println!();
+                // start of initialization
+                let frame_period = config::Config::get().frame_period;
+                let mut animation = Animation::construct(
+                    config::Config::get().animation.clone(),
+                    12,
+                    12
+                );
                 let start = Instant::now();
                 let mut instant = start;
                 let mut autosave_instant = start;
                 let autosave_perdiod = Duration::from_secs(config::Config::get().autosave_period as u64);
-
                 let mut stdout = std::io::stdout();
-                let mut frame: usize = 0;
-
+                println!();
                 enter_clean_input_mode();
+                // end of initialization
                 loop {
-                    /* SimpleAnimation::play(
+                    animation.step(
                         &mut stdout,
-                        &mut frame,
-                        &duration_as_pretty_string(&instant.duration_since(start)),
-                    );*/
-                    if event::poll(std::time::Duration::from_secs_f64(0.1))? {
+                        &ns_to_pretty_string(instant.duration_since(start).as_nanos())
+                    );
+                    if event::poll(std::time::Duration::from_millis(frame_period))? {
                         if let event::Event::Key(key) = event::read()? {
                             if key.kind == event::KeyEventKind::Press
                                 && (key.code == event::KeyCode::Char('q') || key.code == event::KeyCode::Enter)
@@ -125,7 +127,7 @@ fn main() -> anyhow::Result<()> {
                         autosave_instant = instant;
                     }
                     let new_instant = Instant::now();
-                    entry.increase_bloc_duration(&date, new_instant.duration_since(instant).as_secs());
+                    entry.increase_bloc_duration(&date, new_instant.duration_since(instant).as_nanos());
                     instant = new_instant;
                 }
                 exit_clean_input_mode();
@@ -134,8 +136,6 @@ fn main() -> anyhow::Result<()> {
             }
         }
     }
-    */
-    animation::test();
 
     Ok(())
 }

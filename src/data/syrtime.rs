@@ -1,14 +1,14 @@
-use std::{collections::HashMap, sync::OnceLock};
+use std::collections::HashMap;
 use anyhow::Context;
 use serde::{Serialize, Deserialize, de::Visitor};
 use itertools::Itertools;
 
-// u64 since duration translates to u64 and not u32
+// u128 representing nanoseconds
 #[derive(Clone, Default, Serialize, Deserialize)]
-pub(super) struct Blocs (HashMap<SyrDate, u64>);
+pub(super) struct Blocs (HashMap<SyrDate, u128>);
 
 impl std::ops::Deref for Blocs {
-    type Target = HashMap<SyrDate, u64>;
+    type Target = HashMap<SyrDate, u128>;
     fn deref(&self) -> &Self::Target {
         &self.0
     }
@@ -20,14 +20,14 @@ impl std::ops::DerefMut for Blocs {
     }
 }
 
-fn ms_to_pretty_string(mut milliseconds: u64) -> String {
-    let hours = milliseconds / 3600000;
-    milliseconds %= 3600000;
-    let minutes = milliseconds / 60000;
-    milliseconds %= 60000;
-    let seconds = milliseconds / 1000;
-    milliseconds %= 1000;
-
+pub fn ns_to_pretty_string(mut nanoseconds: u128) -> String {
+    let hours = nanoseconds / 3_600_000_000_000_u128;
+    nanoseconds %= 3_600_000_000_000_u128;
+    let minutes = nanoseconds / 60_000_000_000_u128;
+    nanoseconds %= 60_000_000_000_u128;
+    let seconds = nanoseconds / 1_000_000_000_u128;
+    nanoseconds %= 1_000_000_000_u128;
+    let milliseconds = nanoseconds / 1_000_000_u128;
     format!(
         "{:0>2}:{:0>2}:{:0>2}.{:0>3}",
         hours, minutes, seconds, milliseconds
@@ -49,7 +49,7 @@ impl std::fmt::Display for Blocs {
                             date.day(),
                             date.month() as u8,
                             date.year()
-                        ) + &ms_to_pretty_string(*duration)
+                        ) + &ns_to_pretty_string(*duration)
                             + ", "
                     } else {
                         acc + &format!(
@@ -57,7 +57,7 @@ impl std::fmt::Display for Blocs {
                             date.day(),
                             date.month() as u8,
                             date.year()
-                        ) + &ms_to_pretty_string(*duration)
+                        ) + &ns_to_pretty_string(*duration)
                     }
                 })
         )

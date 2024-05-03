@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 use std::{io::{Read, Write}, sync::OnceLock};
 use crossterm::style::Stylize;
 
-use crate::warn;
+use crate::{animation::AnimationBuilder, warn};
 
 pub static CONFIG: OnceLock<Config> = OnceLock::new(); 
 
@@ -28,6 +28,10 @@ pub struct Config {
     pub mismatch_penalty: i16,
     // used for sw and nw algorithms
     pub gap_penalty: i16,
+    // approximately how long a frame will be displayed in milliseconds before being refreshed
+    pub frame_period: u64,
+    // don't ask me why this should be in a config file
+    pub animation: AnimationBuilder
 }
 
 impl Default for Config {
@@ -42,6 +46,13 @@ impl Default for Config {
             match_score: 2,
             mismatch_penalty: -1,
             gap_penalty: -1,
+            frame_period: 150,
+            animation: vec![
+                ("|  ".to_string(), "  |".to_string()),
+                ("/  ".to_string(), "  /".to_string()),
+                ("-  ".to_string(), "  -".to_string()),
+                ("\\  ".to_string(), "  \\".to_string()),
+            ],
         }
     }
 }
