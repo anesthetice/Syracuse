@@ -271,7 +271,7 @@ impl Entry {
         if let Some(val) = self.blocs.get_mut(date) {
             *val += duration
         } else {
-            self.blocs.insert(date.clone(), duration);
+            self.blocs.insert(*date, duration);
         }
     }
 
@@ -285,7 +285,7 @@ impl Entry {
             }
         }
         if delete_bloc {
-            if let None = self.blocs.remove(date) {
+            if self.blocs.remove(date).is_none() {
                 warn!("failed to decrease duration, could not remove bloc")
             }
         }

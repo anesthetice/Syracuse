@@ -247,7 +247,7 @@ pub fn process_start_subcommand(arg_matches: &ArgMatches, entries: &Entries, tod
             autosave_instant = instant;
         }
         let new_instant = Instant::now();
-        entry.increase_bloc_duration(&today, new_instant.duration_since(instant).as_nanos());
+        entry.increase_bloc_duration(today, new_instant.duration_since(instant).as_nanos());
         instant = new_instant;
     }
     exit_clean_input_mode();
@@ -262,7 +262,7 @@ pub fn process_update_subcommand(arg_matches: &ArgMatches, entries: &Entries, to
     };
     let date = match arg_matches.get_one::<String>("date") {
         Some(string) => SyrDate::try_from(string.as_str())?,
-        None => today.clone(),
+        None => *today,
     };
     let Some(operation) = arg_matches.get_one::<String>("operation") else {
         return Ok(PO::Terminate)
