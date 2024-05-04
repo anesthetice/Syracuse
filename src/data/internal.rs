@@ -30,32 +30,26 @@ impl std::ops::DerefMut for Entries {
 
 impl Entries {
     pub fn load() -> anyhow::Result<Self> {
-        Ok(
-        std::path::Path::read_dir(crate::dirs::Dirs::get().data_dir())?
+        let entries = std::path::Path::read_dir(crate::dirs::Dirs::get().data_dir())?
             .flat_map(|res| {
-                match res {
-                    Ok(entry) => {
-                        let path = entry.path();
-                        if path.extension()?.to_str()? == "json" {
-                            match Entry::from_file(&path) {
-                                Ok(entry) => Some(entry),
-                                Err(error) => {
-                                    warn!("{}", error);
-                                    None
-                                }
-                            }
-                        } else {
-                            None
-                        }
-                    },
+                let Ok(entry) = res.map_err(|err| {warn!("{}", err);}) else {
+                    return None
+                };
+                let path = entry.path();
+                if path.extension()?.to_str()? != "json" {
+                    return None
+                }
+                match Entry::from_file(&path) {
+                    Ok(entry) => Some(entry),
                     Err(error) => {
                         warn!("{}", error);
                         None
                     }
                 }
             })
-            .collect::<Vec<Entry>>().into()
-        )
+            .collect::<Vec<Entry>>().into();
+
+        Ok(entries)
     }
     pub fn choose(&self, query: &str) -> Option<Entry> {
         let choices: Vec<&Entry> = self.iter()

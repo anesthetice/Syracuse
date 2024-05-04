@@ -5,7 +5,6 @@ mod config;
 mod data;
 mod dirs;
 mod error;
-mod graph;
 mod utils;
 
 use anyhow::Context;
