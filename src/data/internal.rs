@@ -90,24 +90,37 @@ impl Entries {
         println!("{} [Y/n]", choice);
         enter_clean_input_mode();
         loop {
-            if event::poll(std::time::Duration::from_secs_f64(0.1)).unwrap() {
-                if let event::Event::Key(key) = event::read().ok()? {
-                    if key.kind == event::KeyEventKind::Press {
-                        match key.code {
-                            event::KeyCode::Esc
-                            | event::KeyCode::Char('q')
-                            | event::KeyCode::Char('n') => {
-                                exit_clean_input_mode();
-                                break None;
-                            }
-                            event::KeyCode::Char('y') | event::KeyCode::Enter => {
-                                exit_clean_input_mode();
-                                break Some(choice.clone());
-                            }
-                            _ => {}
-                        }
-                    }
+            if !event::poll(std::time::Duration::from_millis(200)).unwrap_or_else(|err| {
+                warn!("event polling issue, {}", err);
+                false
+            })
+            {
+                continue;
+            }
+            let key = match event::read() {
+                Ok(event::Event::Key(key)) => key,
+                Ok(_) => continue,
+                Err(error) => {
+                    warn!("event read issue, {}", error);
+                    continue
+                },
+            };
+
+            if key.kind != event::KeyEventKind::Press {
+                continue;
+            }
+            match key.code {
+                event::KeyCode::Esc
+                | event::KeyCode::Char('q')
+                | event::KeyCode::Char('n') => {
+                    exit_clean_input_mode();
+                    break None;
                 }
+                event::KeyCode::Char('y') | event::KeyCode::Enter => {
+                    exit_clean_input_mode();
+                    break Some(choice.clone());
+                }
+                _ => {}
             }
         }
     }
@@ -117,33 +130,51 @@ impl Entries {
         }
         enter_clean_input_mode();
         loop {
-            if event::poll(std::time::Duration::from_secs_f64(0.1)).unwrap() {
-                if let event::Event::Key(key) = event::read().ok()? {
-                    if key.kind == event::KeyEventKind::Press {
-                        match key.code {
-                            event::KeyCode::Esc
-                            | event::KeyCode::Char('q')
-                            | event::KeyCode::Char('n') => {
-                                exit_clean_input_mode();
-                                break None;
-                            }
-                            event::KeyCode::Enter => {
-                                exit_clean_input_mode();
-                                break Some(choices[0].clone());
-                            }
-                            event::KeyCode::Char(chr) => {
-                                if chr.is_numeric() {
-                                    if let Ok(idx) = chr.to_string().parse::<usize>() {
-                                        exit_clean_input_mode();
-                                        break Some(choices[idx - 1].clone());
-                                    }
-                                }
-                            }
-                            _ => {}
-                        }
+            if !event::poll(std::time::Duration::from_millis(200)).unwrap_or_else(|err| {
+                warn!("event polling issue, {}", err);
+                false
+            })
+            {
+                continue;
+            }
+            let key = match event::read() {
+                Ok(event::Event::Key(key)) => key,
+                Ok(_) => continue,
+                Err(error) => {
+                    warn!("event read issue, {}", error);
+                    continue
+                },
+            };
+
+            if key.kind != event::KeyEventKind::Press {
+                continue;
+            }
+            match key.code {
+                event::KeyCode::Esc
+                | event::KeyCode::Char('q')
+                | event::KeyCode::Char('n') => {
+                    exit_clean_input_mode();
+                    break None;
+                }
+                event::KeyCode::Enter => {
+                    exit_clean_input_mode();
+                    break Some(choices[0].clone());
+                }
+                event::KeyCode::Char(chr) => {
+                    if !chr.is_numeric() {
+                        continue;
+                    }
+                    let Ok(idx) = chr.to_string().parse::<usize>() else {
+                        continue;
+                    };
+                    if let Some(entry) = choices.get(idx) {
+                        exit_clean_input_mode();
+                        break Some((*entry).clone());
                     }
                 }
+                _ => {}
             }
+
         }
     }
 }
@@ -245,11 +276,17 @@ impl Entry {
     }
 
     pub fn decrease_bloc_duration(&mut self, date: &SyrDate, duration: u128) {
+        let mut delete_bloc: bool = false;
         if let Some(val) = self.blocs.get_mut(date) {
             if duration > *val {
-                *val = 0
+                delete_bloc = true;
             } else {
                 *val -= duration
+            }
+        }
+        if delete_bloc {
+            if let None = self.blocs.remove(date) {
+                warn!("failed to decrease duration, could not remove bloc")
             }
         }
     }
