@@ -8,7 +8,7 @@ mod error;
 mod utils;
 
 use anyhow::Context;
-use data::{internal::Entries, syrtime::SyrDate};
+use data::{graph, internal::Entries, syrtime::SyrDate};
 use crossterm::style::Stylize;
 use directories::ProjectDirs;
 use cli::{
@@ -50,6 +50,7 @@ fn main() -> anyhow::Result<()> {
     let entries = Entries::load()?;
     // end of initialization
 
+    /*
     let command = cli::cli();
     let arg_matches = command.get_matches();
 
@@ -77,6 +78,9 @@ fn main() -> anyhow::Result<()> {
         PO::Continue => (),
         PO::Terminate => return Ok(()),
     }
+    */
+
+    graph::spline_interpolation_testing();
 
     Ok(())
 }

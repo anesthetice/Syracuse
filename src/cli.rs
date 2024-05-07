@@ -8,7 +8,7 @@ use crate::{
     animation,
     config,
     data::{internal::{Entries, Entry}, syrtime::{ns_to_pretty_string, SyrDate}},
-    error, info, utils::{enter_clean_input_mode, exit_clean_input_mode},
+    error, info, utils::{enter_clean_input_mode, exit_clean_input_mode}, warn,
 };
 
 pub fn cli() -> clap::Command {
@@ -216,6 +216,7 @@ pub fn process_start_subcommand(arg_matches: &ArgMatches, entries: &Entries, tod
         return Ok(PO::Terminate)
     };
     // start of initialization
+    let mut file_save_error_counter: u8 = 0;
     let frame_period = config::Config::get().frame_period;
     let mut animation = animation::Animation::construct(
         config::Config::get().animation.clone(),
@@ -243,7 +244,16 @@ pub fn process_start_subcommand(arg_matches: &ArgMatches, entries: &Entries, tod
             }
         }
         if instant.duration_since(autosave_instant) > autosave_perdiod {
-            entry.save_to_file().context("failed to save entry progress")?;
+            if let Err(error) = entry.save_to_file() {
+                file_save_error_counter += 1;
+                if file_save_error_counter > 2 {
+                    warn!("maximum number of failed autosaves reached, exiting...");
+                    return Err(error);
+                }
+                else {
+                    warn!("failed to autosave progress, {}", error);
+                }
+            }
             autosave_instant = instant;
         }
         let new_instant = Instant::now();

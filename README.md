@@ -15,8 +15,9 @@ cargo build --release
 Here are the improvements I am working on
 
 * modular entry system                                                  ✓
-* increased stability, no mem::transmute                                ~
-* Smith-Waterman + Needleman-Wunsch algorithms for string matching      ~
+* increased stability, no mem::transmute                                ✓
+* Smith-Waterman + Needleman-Wunsch algorithms for string matching      ✓
 * nicer curve fitting for graphs                                        x
 * more graphing options                                                 x
 * proper directory usage                                                ✓
+* new subcommands, "today", "backup", "prune"                           x
