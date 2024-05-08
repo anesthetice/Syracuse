@@ -1,6 +1,5 @@
-use std::io::stdout;
-
 use crossterm::{cursor, execute, style::Stylize, terminal::{disable_raw_mode, enable_raw_mode}};
+use std::io::stdout;
 
 #[macro_export]
 macro_rules! info {

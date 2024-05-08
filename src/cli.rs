@@ -121,21 +121,11 @@ pub fn cli() -> clap::Command {
         .arg(
             Arg::new("all")
                 .help("graphs all entries")
-                .exclusive(true)
                 .short('a')
                 .short('f')
                 .long("all")
                 .alias("full")
                 .action(ArgAction::SetTrue),
-        )
-        .arg(
-            Arg::new("single")
-                .help("graphs a single specified entry")
-                .exclusive(true)
-                .short('s')
-                .long("single")
-                .required(false)
-                .action(ArgAction::Set),
         );
 
     command!()
@@ -309,6 +299,16 @@ pub fn process_update_subcommand(arg_matches: &ArgMatches, entries: &Entries, to
         info!("invalid operation, got : {}", operation);
     }
     
+    Ok(PO::Terminate)
+}
+
+pub fn process_graph_subcommand(arg_matches: &ArgMatches, entries: Entries) -> anyhow::Result<ProcessOutput> {
+    let Some(arg_matches) = arg_matches.subcommand_matches("graph") else {
+        return Ok(PO::Continue)
+    };
+    let start_date = SyrDate::new(time::Date::from_calendar_date(2024, time::Month::May, 6).unwrap());
+    let end_date = SyrDate::new(time::Date::from_calendar_date(2024, time::Month::May, 14).unwrap());
+    crate::data::graph::graph(entries, start_date, end_date)?;
     Ok(PO::Terminate)
 }
 

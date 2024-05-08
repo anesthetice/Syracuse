@@ -65,12 +65,22 @@ impl std::fmt::Display for Blocs {
 }
 
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Hash)]
 pub struct SyrDate(time::Date);
 
 impl SyrDate {
     pub fn new(date: time::Date) -> Self {
         Self(date)
+    }
+    pub fn expand_from_bounds(start: Self, end: Self) -> Vec<Self> {
+        let mut dates: Vec<SyrDate> = Vec::new();
+        dates.push(start.clone());
+        let mut date = start;
+        while date < end {
+            date = date.next_day().unwrap_or(*end).into();
+            dates.push(date.clone())
+        }
+        dates
     }
 }
 

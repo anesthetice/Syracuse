@@ -18,6 +18,7 @@ pub struct Config {
     // e.g. western europe : [1,0,0] or [2,0,0] generally depending on daylight saving time
     // you will have to manually change the config to account for changes in your timezone
     pub local_offset: [i8; 3],
+
     // threshold for results to be considered
     pub search_threshold: f64,
     // smith-waterman and needlman-wunsch algorithm weight
@@ -28,10 +29,24 @@ pub struct Config {
     pub mismatch_penalty: i16,
     // used for sw and nw algorithms
     pub gap_penalty: i16,
+
     // approximately how long a frame will be displayed in milliseconds before being refreshed
     pub frame_period: u64,
     // don't ask me why this should be in a config file
-    pub animation: AnimationBuilder
+    pub animation: AnimationBuilder,
+    
+    // the number of points between a date and the next one that will be interpolated when graphing entries
+    pub nb_points_between_dates: usize,
+    // graph background color
+    pub graph_background_rgb: (u8, u8, u8),
+    // graph foreground color
+    pub graph_foreground_rgb: (u8, u8, u8),
+    // graph bold grid color
+    pub graph_coarse_grid_rgb: (u8, u8, u8),
+    // graph fine grid color
+    pub graph_fine_grid_rgb: (u8, u8, u8),
+    // the colors used for entry markers
+    pub graph_marker_colors: Vec<(u8, u8, u8)>
 }
 
 impl Default for Config {
@@ -53,6 +68,25 @@ impl Default for Config {
                 ("-  ".to_string(), "  -".to_string()),
                 ("\\  ".to_string(), "  \\".to_string()),
             ],
+            nb_points_between_dates: 100,
+            graph_background_rgb: (30, 30, 46),
+            graph_foreground_rgb: (205, 214, 244),
+            graph_coarse_grid_rgb: (84, 87, 108),
+            graph_fine_grid_rgb: (49, 50, 68),
+            graph_marker_colors: vec![
+                // amaranth pink
+                (243, 167, 186),
+                // cocktail red
+                (253, 109, 114),
+                // deep saffron
+                (255, 150, 58),
+                // corn
+                (250, 234, 93),
+                // mountain lake green
+                (117, 185, 150),
+                // ceulean
+                (0, 143, 190),
+            ]
         }
     }
 }

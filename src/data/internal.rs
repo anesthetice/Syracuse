@@ -175,9 +175,9 @@ impl Entries {
 
 #[derive(Clone)]
 pub struct Entry {
-    name: String,
-    aliases: Vec<String>,
-    blocs: Blocs,
+    pub(super) name: String,
+    pub(super) aliases: Vec<String>,
+    pub(super) blocs: Blocs,
 }
 
 impl std::fmt::Debug for Entry {
