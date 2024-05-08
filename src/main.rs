@@ -80,7 +80,7 @@ fn main() -> anyhow::Result<()> {
     }
     */
 
-    graph::spline_interpolation_testing();
+    graph::test();
 
     Ok(())
 }

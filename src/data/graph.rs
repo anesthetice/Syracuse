@@ -2,15 +2,99 @@ use itertools::Itertools;
 use plotters::prelude::*;
 
 // cubic splines with quadratic ends
-pub fn spline_interpolation_testing() {
-    let f = |x: f64| {x.exp() - 4.0*x*x - 3.0*x + 5.0};
-    let points: Vec<(f64, f64)> = (0..11).map(|x| {
-        let x = (x as f64) / 2.0;
-        (x, f(x))
-    }).collect_vec();
-    //println!("{:?}", points);
 
-    let mut splines: Vec<Box<dyn Fn(f64) -> f64>> = Vec::new();
+pub fn test() {
+    numerical::spline_interpolation_testing();
+}
+
+mod numerical {
+    use itertools::Itertools;
+
+    use crate::data::graph::linalg;
+
+    pub fn spline_interpolation_testing() {
+        let f = |x: f64| {x.exp() - 2.0*x*x - 3.0*x + 5.0};
+        let points: Vec<(f64, f64)> = (0..6).map(|x| {
+            let x = x as f64;
+            (x, f(x))
+        }).collect();
+        println!("{:?}\n", points);
+    
+        let n = points.len() - 1;
+        let b_idx = 4*n;
+        let mut equations = vec![vec![0_f64; 4*n+1]; 4*n];
+
+        // first 2n equations
+        for i in 0..n {
+            let adj_i = i * 4;
+            let x = points[i].0;
+            let x_1 = points[i+1].0;
+
+            equations[adj_i][adj_i] = 1.0;      // a0
+            equations[adj_i][adj_i+1] = x;      // a1
+            equations[adj_i][adj_i+2] = x*x;    // a2
+            equations[adj_i][adj_i+3] = x*x*x;  // a3
+            equations[adj_i][b_idx] = points[i].1;
+
+            equations[adj_i+1][adj_i] = 1.0;            // a0
+            equations[adj_i+1][adj_i+1] = x_1;          // a1
+            equations[adj_i+1][adj_i+2] = x_1*x_1;      // a2
+            equations[adj_i+1][adj_i+3] = x_1*x_1*x_1;  // a3
+            equations[adj_i+1][b_idx] = points[i+1].1;
+        }
+
+        // 2(n-1) equations
+        for i in 0..n-1 {
+            let adj_i = i * 4;
+            let adj_i_1 = adj_i + 4;
+            let x_1 = points[i+1].0;
+
+            // first derivative
+            equations[adj_i+2][adj_i+1] = 1.0;          // a1
+            equations[adj_i+2][adj_i+2] = 2.0*x_1;    // a2
+            equations[adj_i+2][adj_i+3] = 3.0*x_1*x_1;  // a3
+
+            equations[adj_i+2][adj_i_1+1] = -1.0;          // a1
+            equations[adj_i+2][adj_i_1+2] = -2.0*x_1;    // a2
+            equations[adj_i+2][adj_i_1+3] = -3.0*x_1*x_1;  // a3
+
+            // second derivative
+            equations[adj_i+3][adj_i+2] = 2.0;    // a2
+            equations[adj_i+3][adj_i+3] = 6.0*x_1;  // a3
+
+            equations[adj_i+3][adj_i_1+2] = -2.0;    // a2
+            equations[adj_i+3][adj_i_1+3] = -6.0*x_1;  // a3
+        }
+
+        // 2 equations
+        equations[(n-1)*4+2][2] = 2.0;
+        equations[(n-1)*4+2][3] = points[0].0 * 3.0;
+
+        equations[(n-1)*4+3][(n-1)*4+2] = 2.0;
+        equations[(n-1)*4+3][(n-1)*4+3] = points[n-1].0 * 3.0;
+
+        let solution = linalg::solve_no_para(equations);
+
+        let splines: Vec<Box<dyn Fn(f64) -> f64>> = solution
+            .into_iter()
+            .tuple_windows()
+            .step_by(4)
+            .map(|(a0, a1, a2, a3)| {
+                Box::new(move |x: f64| -> f64 {
+                    a3 * x*x*x + a2 * x*x + a1 * x + a0
+                }) as Box<dyn Fn(f64) -> f64>
+            })
+            .collect();
+        
+        let y: Vec<f64> = (0..500).map(|x| {
+            let x: f64 = x as f64 / 100.0;
+            splines.get(x.floor() as usize).unwrap()(x)
+        }).collect();
+
+        println!("{:?}", y)
+
+    }
+    
 }
 
 
