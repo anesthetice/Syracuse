@@ -68,7 +68,7 @@ impl Default for Config {
                 ("-  ".to_string(), "  -".to_string()),
                 ("\\  ".to_string(), "  \\".to_string()),
             ],
-            nb_points_between_dates: 100,
+            nb_points_between_dates: 20,
             graph_background_rgb: (30, 30, 46),
             graph_foreground_rgb: (205, 214, 244),
             graph_coarse_grid_rgb: (84, 87, 108),

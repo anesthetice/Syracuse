@@ -1,3 +1,4 @@
+use anyhow::Context;
 use itertools::Itertools;
 use plotters::prelude::*;
 use super::{internal::{Entries, Entry}, syrtime::SyrDate};
@@ -30,7 +31,12 @@ pub fn graph(entries: Entries, start_date: SyrDate, end_date: SyrDate) -> anyhow
 
     let dates = SyrDate::expand_from_bounds(start_date, end_date);
 
+    if dates.len() < 3 {
+        Err(crate::error::Error{}).context("failed to generate graph, three day span minimum required")?
+    }
+
     let superpoints: Vec<(String, Vec<(f64, f64)>)> = entries.iter().map(|entry| (entry.name.clone(), entry.get_points(&dates))).collect();
+
     let mut sum_points: Vec<(f64, f64)> = superpoints[0].1.clone();
     for (_, points) in superpoints.iter().skip(1) {
         for (idx, point) in points.into_iter().enumerate() {
@@ -38,9 +44,50 @@ pub fn graph(entries: Entries, start_date: SyrDate, end_date: SyrDate) -> anyhow
         }
     }
     println!("{:?}", sum_points);
-    let sum_points = numerical::interpolate(sum_points);
+    let mut meta_sum_points: Vec<Vec<(f64, f64)>> = Vec::new();
+    {
+        println!();
+        sum_points.split(|(x, y)| *y==0.0).for_each(|point| {print!("{point:?} ")});
+        println!();
 
-    let image_width: u32 = dates.len() as u32 * 100 + 6000;
+        let mut buffer: Vec<(f64, f64)> = Vec::new();
+        let mut stop_signal: bool = sum_points[1].1 == 0.0;
+        for (x, y) in sum_points.iter() {
+            if *y == 0.0 {
+                if stop_signal && !buffer.is_empty() {
+                    meta_sum_points.push(buffer.clone());
+                    buffer.clear();
+                } else if !stop_signal {
+                    buffer.push((*x, *y))
+                }
+                stop_signal = true;
+            } else {
+                stop_signal = false;
+                buffer.push((*x, *y))
+            }
+        }
+        meta_sum_points.push(buffer);
+        /*
+        let filtered_data: Vec<(f64, f64)> = sum_points
+            .iter()
+            .copied()
+            .enumerate()
+            .filter(|&(i, (_, y))| {
+                if y == 0.0 {
+                    i == 0 || i == sum_points.len()-1 || sum_points[i - 1].1 != 0.0 || sum_points[i + 1].1 != 0.0
+                }
+                else {
+                    true
+                }
+            })
+            .map(|(_, point)| point)
+            .collect();
+        println!("{:?}", filtered_data);
+        */
+    }
+    println!("{:?}", meta_sum_points);
+
+    let image_width: u32 = dates.len() as u32 * 100 + 500;
     let image_height: u32 = 1080;
 
     let root =
@@ -69,7 +116,7 @@ pub fn graph(entries: Entries, start_date: SyrDate, end_date: SyrDate) -> anyhow
                 String::with_capacity(0)
             }
         })
-        //.x_labels(100)
+        .x_labels(dates.len())
         .bold_line_style(
             ShapeStyle {
                 color: coarse_grid_rgb.to_rgba(),
@@ -83,20 +130,14 @@ pub fn graph(entries: Entries, start_date: SyrDate, end_date: SyrDate) -> anyhow
         })
         .draw()?;
 
-    ctx.draw_series(
-        sum_points
-            .into_iter()
-            .map(|point| Pixel::new(point, fg_rgb)),
-    )?;
-
-
+    ctx.draw_series(LineSeries::new(sum_points.into_iter(), fg_rgb.stroke_width(2)))?;
 
     ctx.configure_series_labels()
-    .position(SeriesLabelPosition::UpperRight)
-    .border_style(fg_rgb)
-    .margin(15)
-    .label_font(("sans-serif", 15.0).with_color(fg_rgb))
-    .draw()?;
+        .position(SeriesLabelPosition::UpperRight)
+        .border_style(fg_rgb)
+        .margin(15)
+        .label_font(("sans-serif", 15.0).with_color(fg_rgb))
+        .draw()?;
 
     Ok(root.present()?)
 }
@@ -105,175 +146,36 @@ fn rgb_translate(rgb: (u8, u8, u8)) -> RGBColor {
     RGBColor(rgb.0, rgb.1, rgb.2)
 }
 
-mod numerical {
+mod interpolation {
+    use anyhow::Context;
     use itertools::Itertools;
-    use super::linalg;
 
-    // cubic spline interpolation
-    pub fn interpolate(points: Vec<(f64, f64)>) -> Vec<(f64, f64)> {
-        let n = points.len() - 1;
-        let mut equations = vec![vec![0_f64; 4*n+1]; 4*n];
-        let b_idx = 4*n;
-        
-        // first 2n equations
-        for i in 0..n {
-            let adj_i = i * 4;
-            let x = points[i].0;
-            let x_1 = points[i+1].0;
+    type interpolator = Vec<Box<dyn Fn(f64) -> Option<f64>>>;
 
-            equations[adj_i][adj_i] = 1.0;      // a0
-            equations[adj_i][adj_i+1] = x;      // a1
-            equations[adj_i][adj_i+2] = x*x;    // a2
-            equations[adj_i][adj_i+3] = x*x*x;  // a3
-            equations[adj_i][b_idx] = points[i].1;
+    fn makima(points: Vec<(f64, f64)>) -> anyhow::Result<()> {
 
-            equations[adj_i+1][adj_i] = 1.0;            // a0
-            equations[adj_i+1][adj_i+1] = x_1;          // a1
-            equations[adj_i+1][adj_i+2] = x_1*x_1;      // a2
-            equations[adj_i+1][adj_i+3] = x_1*x_1*x_1;  // a3
-            equations[adj_i+1][b_idx] = points[i+1].1;
+        if points.len() < 5 {
+            Err(crate::error::Error{}).context("makima interpolation requires at least 5 points")?   
         }
 
-        // 2(n-1) equations
-        for i in 0..n-1 {
-            let adj_i = i * 4;
-            let adj_i_1 = adj_i + 4;
-            let x_1 = points[i+1].0;
-
-            // first derivative
-            equations[adj_i+2][adj_i+1] = 1.0;          // a1
-            equations[adj_i+2][adj_i+2] = 2.0*x_1;    // a2
-            equations[adj_i+2][adj_i+3] = 3.0*x_1*x_1;  // a3
-
-            equations[adj_i+2][adj_i_1+1] = -1.0;          // a1
-            equations[adj_i+2][adj_i_1+2] = -2.0*x_1;    // a2
-            equations[adj_i+2][adj_i_1+3] = -3.0*x_1*x_1;  // a3
-
-            // second derivative
-            equations[adj_i+3][adj_i+2] = 2.0;    // a2
-            equations[adj_i+3][adj_i+3] = 6.0*x_1;  // a3
-
-            equations[adj_i+3][adj_i_1+2] = -2.0;    // a2
-            equations[adj_i+3][adj_i_1+3] = -6.0*x_1;  // a3
-        }
-
-        // 2 equations
-        equations[(n-1)*4+2][2] = 2.0;
-        equations[(n-1)*4+2][3] = points[0].0 * 3.0;
-
-        equations[(n-1)*4+3][(n-1)*4+2] = 2.0;
-        equations[(n-1)*4+3][(n-1)*4+3] = points[n-1].0 * 3.0;
-
-
-        let solution = {
-            if n < 150 {
-                linalg::solve_no_para(equations)
-            } else {
-                linalg::solve_semi_para(equations)
-            }
-        };
-
-        let splines: Vec<Box<dyn Fn(f64) -> f64>> = solution
-            .into_iter()
+        // slope between each point
+        let m: Vec<f64> = points
+            .iter()
             .tuple_windows()
-            .step_by(4)
-            .map(|(a0, a1, a2, a3)| {
-                Box::new(move |x: f64| -> f64 {
-                    a3 * x*x*x + a2 * x*x + a1 * x + a0
-                }) as Box<dyn Fn(f64) -> f64>
+            .map(|(&(x_i, y_i), &(x_ip1, y_ip1))| {
+                (y_ip1 - y_i) / (x_ip1 - x_i)
             })
             .collect();
-        
-        let nb_gap = crate::config::Config::get().nb_points_between_dates;
-        let dist = (points[0].0 - points[1].0).abs();
-        let x_0 = points[0].0.floor() as usize;
-        let x_n = points[n].0.floor() as usize;
 
-        (x_0..x_n*nb_gap).map(|x| {
-            let x = x as f64 / nb_gap as f64;
-            let index = (x / dist).floor() as usize;
-            (x, splines.get(index).unwrap_or(splines.last().unwrap())(x))
-        }).collect_vec()
-    }
-    
-}
-
-
-/// tl;dr use solve_no_para if n < 600 and solve_semi_para otherwise
-/// n < 600 implies < 150+1 points to interpolate
-mod linalg {
-    use rayon::iter::{
-        IntoParallelRefMutIterator,
-        IndexedParallelIterator,
-        ParallelIterator,
-    };
-    type Matrix = Vec<Vec<f64>>;
-    type Array = Vec<f64>;
-
-    #[allow(non_snake_case)]
-    pub fn solve_no_para(mut Ab: Matrix) -> Array {
-        let n: usize = Ab.len();
-        let mut r: usize = 0;
-        let mut max_r: f64 = f64::MIN;
-
-        for k in 0..n-1 {
-            for i in k..n-1 {
-                if max_r < Ab[i][k].abs() {
-                    r = i;
-                    max_r = Ab[i][k].abs()
-                }
-            }
-            Ab.swap(k, r);
-            max_r = f64::MIN;
-
-            for i in k+1..n {
-                let l_ik = Ab[i][k]/Ab[k][k];
-                for j in k..n+1 {
-                    Ab[i][j] -= l_ik * Ab[k][j];
-                }
-            }
+        // spline slopes
+        let mut s: Vec<f64> = Vec::new();
+        // deals with the two first spline slopes
+        s.push(m[0]); s.push((m[0] + m[1])/2.0);
+        for idx in 2..points.len()-2 {
+            
         }
-        let mut solution: Vec<f64> = Vec::with_capacity(n);
 
-        for i in (0..n).rev() {
-            let tmp_ = (1.0/Ab[i][i]) * (Ab[i][n] - (i+1..n).map(|j| {solution[n-(j+1)]*Ab[i][j]}).sum::<f64>());
-            solution.push(tmp_);
-        }
-        solution.reverse();
-        solution
-    }
 
-    #[allow(non_snake_case)]
-    pub fn solve_semi_para(mut Ab: Matrix) -> Array {
-        let n: usize = Ab.len();
-        let mut r: usize = 0;
-        let mut max_r: f64 = f64::MIN;
-
-        for k in 0..n-1 {
-            for i in k..n-1 {
-                if max_r < Ab[i][k].abs() {
-                    r = i;
-                    max_r = Ab[i][k].abs()
-                }
-            }
-            Ab.swap(k, r);
-            max_r = f64::MIN;
-
-            let Ab_k = Ab[k].clone();
-            Ab.par_iter_mut().skip(k+1).for_each(|Ab_i| {
-                let l_ik = Ab_i[k]/Ab_k[k];
-                for j in k..n+1 {
-                    Ab_i[j] -= l_ik * Ab_k[j];
-                }
-            });
-        }
-        let mut solution: Vec<f64> = Vec::with_capacity(n);
-
-        for i in (0..n).rev() {
-            let tmp_ = (1.0/Ab[i][i]) * (Ab[i][n] - (i+1..n).map(|j| {solution[n-(j+1)]*Ab[i][j]}).sum::<f64>());
-            solution.push(tmp_);
-        }
-        solution.reverse();
-        solution
+        Ok(())
     }
 }

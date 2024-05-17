@@ -306,8 +306,8 @@ pub fn process_graph_subcommand(arg_matches: &ArgMatches, entries: Entries) -> a
     let Some(arg_matches) = arg_matches.subcommand_matches("graph") else {
         return Ok(PO::Continue)
     };
-    let start_date = SyrDate::new(time::Date::from_calendar_date(2024, time::Month::May, 6).unwrap());
-    let end_date = SyrDate::new(time::Date::from_calendar_date(2024, time::Month::May, 14).unwrap());
+    let start_date = SyrDate::new(time::Date::from_calendar_date(2024, time::Month::May, 1).unwrap());
+    let end_date = SyrDate::new(time::Date::from_calendar_date(2024, time::Month::May, 15).unwrap());
     crate::data::graph::graph(entries, start_date, end_date)?;
     Ok(PO::Terminate)
 }
