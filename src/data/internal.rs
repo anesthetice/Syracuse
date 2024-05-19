@@ -233,7 +233,7 @@ impl Entry {
     pub fn get_filestem(&self) -> String {
         let separator: &str = crate::config::Config::get().entry_file_name_separtor.as_str();
         let mut filestem = self.name.clone();
-        filestem.push_str(separator);
+        if !self.aliases.is_empty() {filestem.push_str(separator)}
         filestem.push_str(&self.aliases.join(separator));
         filestem
     }
@@ -242,6 +242,11 @@ impl Entry {
         crate::dirs::Dirs::get()
             .data_dir()
             .join(self.get_filestem() + ".json")
+    }
+
+    // true = valid, false = invalid
+    pub fn check_new_entry_name_validity(&self, new_entry_name: &str) -> bool {
+        !(self.name.as_str() == new_entry_name || self.aliases.iter().any(|alias| alias == new_entry_name))
     }
 
     pub fn save_to_file(&self) -> anyhow::Result<()> {

@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 use std::{io::{Read, Write}, sync::OnceLock};
 use crossterm::style::Stylize;
 
-use crate::{animation::AnimationBuilder, warn};
+use crate::{animation::AnimationBuilder, data::graph::interpolation::InterpolationMethod, warn};
 
 pub static CONFIG: OnceLock<Config> = OnceLock::new(); 
 
@@ -35,8 +35,11 @@ pub struct Config {
     // don't ask me why this should be in a config file
     pub animation: AnimationBuilder,
     
-    // the number of points between a date and the next one that will be interpolated when graphing entries
-    pub nb_points_between_dates: usize,
+    pub graph_interpolation_method: InterpolationMethod,
+    // the number of points between a date and the next one that will be interpolated when graphing the sum of entries
+    pub graph_nb_interpolated_points: usize,
+    // marker size for entries
+    pub graph_marker_size: usize,
     // graph background color
     pub graph_background_rgb: (u8, u8, u8),
     // graph foreground color
@@ -68,7 +71,9 @@ impl Default for Config {
                 ("-  ".to_string(), "  -".to_string()),
                 ("\\  ".to_string(), "  \\".to_string()),
             ],
-            nb_points_between_dates: 20,
+            graph_interpolation_method: InterpolationMethod::Linear,
+            graph_nb_interpolated_points: 1500,
+            graph_marker_size: 6,
             graph_background_rgb: (30, 30, 46),
             graph_foreground_rgb: (205, 214, 244),
             graph_coarse_grid_rgb: (84, 87, 108),
@@ -101,12 +106,13 @@ impl Config {
             Err(error) => {
                 warn!("failed to load configuration from file, caused by : {}", error);
                 let config = Self::default();
-                if let Ok(downcast_error) = error.downcast::<std::io::Error>() {
-                    if downcast_error.kind() == std::io::ErrorKind::NotFound {
-                        match config.to_file(filepath) {
-                            Ok(()) => warn!("created default configuration file, at : {}", filepath.display()),
-                            Err(error) => warn!("failed to create default configuration file, at : {}, caused by : {}", filepath.display(), error)
-                        }
+                let Ok(downcast_error) = error.downcast::<std::io::Error>() else {
+                    return config
+                };
+                if downcast_error.kind() == std::io::ErrorKind::NotFound {
+                    match config.to_file(filepath) {
+                        Ok(()) => warn!("created default configuration file, at : {}", filepath.display()),
+                        Err(error) => warn!("failed to create default configuration file, at : {}, caused by : {}", filepath.display(), error)
                     }
                 }
                 config

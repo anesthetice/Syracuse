@@ -26,7 +26,7 @@ fn main() -> anyhow::Result<()> {
     }
 
     // this should never fail, unwrapping is fine
-    config::CONFIG.set(config::Config::load(&dirs.config_dir().join("syracuse.config"))).unwrap();
+    config::CONFIG.set(config::Config::load(&dirs.config_dir().join("syracuse.conf"))).unwrap();
     dirs::DIRS.set(dirs).unwrap();
 
     let date: SyrDate = {

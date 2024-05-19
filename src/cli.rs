@@ -7,7 +7,7 @@ use crossterm::{event, style::Stylize};
 use crate::{
     animation,
     config,
-    data::{internal::{Entries, Entry}, syrtime::{ns_to_pretty_string, SyrDate}},
+    data::{graph, internal::{Entries, Entry}, syrtime::{ns_to_pretty_string, SyrDate}},
     error, info, utils::{enter_clean_input_mode, exit_clean_input_mode}, warn,
 };
 
@@ -114,6 +114,10 @@ pub fn cli() -> clap::Command {
                 .long("second")
                 .action(ArgAction::Set),
         );
+    
+    let today_subcommand = Command::new("today")
+        .about("Displays time tracked today")
+        .long_about("This subcommand is used to display the sum of the time tracked by every single entry for today");
 
     let graph_subcommand = Command::new("graph")
         .about("Creates a graph")
@@ -153,12 +157,19 @@ pub fn process_add_subcommand(arg_matches: &ArgMatches, entries: &Entries) -> an
     };
     let mut names: Vec<String> = entry_match.map(|s| s.to_uppercase()).collect();
 
+    let separator_characters = config::Config::get().entry_file_name_separtor.as_str();
+    for name in names.iter() {
+        if name.contains(separator_characters) {
+            Err(error::Error{})
+                    .with_context(|| format!("failed to add new entry, the name and or aliases provided conflict with the separator characters '{}'", separator_characters))?
+        }
+    }
+
     for entry in entries.iter() {
-        let filestem = entry.get_filestem();
         for name in names.iter() {
-            if filestem.contains(name) {
+            if !entry.check_new_entry_name_validity(name) {
                 Err(error::Error{})
-                    .with_context(|| format!("failed to add new entry, the name and alisases provided conflict with an existing entry or the separator characters, {}", filestem))?
+                    .with_context(|| format!("failed to add new entry, the name and or aliases provided conflict with an existing entry, {}", entry))?
             }
         }
     }
