@@ -1,7 +1,7 @@
 use std::time::{Duration, Instant};
 
 use anyhow::Context;
-use clap::{command, Arg, ArgAction, ArgMatches, Command};
+use clap::{command, value_parser, Arg, ArgAction, ArgMatches, Command};
 use crossterm::{event, style::Stylize};
 
 use crate::{
@@ -96,6 +96,7 @@ pub fn cli() -> clap::Command {
                 .help("the number of hours to add or subtract")
                 .short('t')
                 .long("hour")
+                .value_parser(value_parser!(f64))
                 .action(ArgAction::Set),
         )
         .arg(
@@ -104,6 +105,7 @@ pub fn cli() -> clap::Command {
                 .help("the number of minutes to add or subtract")
                 .short('m')
                 .long("minute")
+                .value_parser(value_parser!(f64))
                 .action(ArgAction::Set),
         )
         .arg(
@@ -112,6 +114,7 @@ pub fn cli() -> clap::Command {
                 .help("the number of seconds to add or subtract")
                 .short('s')
                 .long("second")
+                .value_parser(value_parser!(f64))
                 .action(ArgAction::Set),
         );
     
@@ -119,37 +122,64 @@ pub fn cli() -> clap::Command {
         .about("Displays time tracked today")
         .long_about("This subcommand is used to display the sum of the time tracked by every single entry for today");
 
+    let prune_subcommand = Command::new("prune")
+        .about("Removes old blocs from entries")
+        .long_about("This subcommand is used to remove blocs of time that are older than the provided date")
+        .arg(
+            Arg::new("date")
+                .help("cutoff date for pruning")
+                .index(1)
+                .required(true)
+                .action(ArgAction::Set)
+        );
+
     let graph_subcommand = Command::new("graph")
         .about("Creates a graph")
         .long_about("This subcommand is used to graph the entries within a specified time frame")
         .arg(
-            Arg::new("all")
-                .help("graphs all entries")
-                .short('a')
-                .short('f')
-                .long("all")
-                .alias("full")
-                .action(ArgAction::SetTrue),
+            Arg::new("days")
+                .help("number of days back graphed")
+                .short('d')
+                .long("days")
+                .value_parser(value_parser!(usize))
+                .action(ArgAction::Set)
+        )
+        .arg(
+            Arg::new("start")
+                .help("start date")
+                .short('s')
+                .long("start")
+                .action(ArgAction::Set)
+        )
+        .arg(
+            Arg::new("end")
+                .help("end date")
+                .short('e')
+                .long("end")
+                .action(ArgAction::Set)
         );
 
-    command!()
-        .subcommand(add_subcommand)
-        .subcommand(list_subcommand)
-        .subcommand(remove_subcommand)
-        .subcommand(start_subcommand)
-        .subcommand(update_subcommand)
-        .subcommand(graph_subcommand)
+    command!().subcommands([
+        add_subcommand,
+        list_subcommand,
+        remove_subcommand,
+        start_subcommand,
+        update_subcommand,
+        today_subcommand,
+        prune_subcommand,
+        graph_subcommand
+    ])
 }
 
 pub enum ProcessOutput {
-    Continue,
+    Continue(Option<Entries>),
     Terminate, 
 }
 
 use ProcessOutput as PO;
 pub fn process_add_subcommand(arg_matches: &ArgMatches, entries: &Entries) -> anyhow::Result<ProcessOutput> {
     let Some(arg_matches) = arg_matches.subcommand_matches("add") else {
-        return Ok(PO::Continue)
+        return Ok(PO::Continue(None))
     };
     let Some(entry_match) = arg_matches.get_many::<String>("entry") else {
         info!("invalid entries");
@@ -180,7 +210,7 @@ pub fn process_add_subcommand(arg_matches: &ArgMatches, entries: &Entries) -> an
 
 pub fn process_list_subcommand(arg_matches: &ArgMatches, entries: &Entries) -> anyhow::Result<ProcessOutput> {
     let Some(arg_matches) = arg_matches.subcommand_matches("list") else {
-        return Ok(PO::Continue)
+        return Ok(PO::Continue(None))
     };
     if arg_matches.get_flag("full") {
         for entry in entries.iter() {println!("{:?}\n", entry)}
@@ -192,7 +222,7 @@ pub fn process_list_subcommand(arg_matches: &ArgMatches, entries: &Entries) -> a
 
 pub fn process_remove_subcommand(arg_matches: &ArgMatches, entries: &Entries) -> anyhow::Result<ProcessOutput> {
     let Some(arg_matches) = arg_matches.subcommand_matches("remove") else {
-        return Ok(PO::Continue)
+        return Ok(PO::Continue(None))
     };
     let Some(entry_match) = arg_matches.get_one::<String>("entry") else {
         return Ok(PO::Terminate)
@@ -208,7 +238,7 @@ pub fn process_remove_subcommand(arg_matches: &ArgMatches, entries: &Entries) ->
 
 pub fn process_start_subcommand(arg_matches: &ArgMatches, entries: &Entries, today: &SyrDate) -> anyhow::Result<ProcessOutput> {
     let Some(arg_matches) = arg_matches.subcommand_matches("start") else {
-        return Ok(PO::Continue)
+        return Ok(PO::Continue(None))
     };
     let Some(entry_match) = arg_matches.get_one::<String>("entry") else {
         return Ok(PO::Terminate)
@@ -240,7 +270,7 @@ pub fn process_start_subcommand(arg_matches: &ArgMatches, entries: &Entries, tod
         if event::poll(std::time::Duration::from_millis(frame_period))? {
             if let event::Event::Key(key) = event::read()? {
                 if key.kind == event::KeyEventKind::Press
-                    && (key.code == event::KeyCode::Char('q') || key.code == event::KeyCode::Enter)
+                    && (key.code == event::KeyCode::Char('q') || key.code == event::KeyCode::Char('Q') || key.code == event::KeyCode::Enter)
                 {break}
             }
         }
@@ -269,7 +299,7 @@ pub fn process_start_subcommand(arg_matches: &ArgMatches, entries: &Entries, tod
 
 pub fn process_update_subcommand(arg_matches: &ArgMatches, entries: &Entries, today: &SyrDate) -> anyhow::Result<ProcessOutput> {
     let Some(arg_matches) = arg_matches.subcommand_matches("update") else {
-        return Ok(PO::Continue)
+        return Ok(PO::Continue(None))
     };
     let date = match arg_matches.get_one::<String>("date") {
         Some(string) => SyrDate::try_from(string.as_str())?,
@@ -284,18 +314,9 @@ pub fn process_update_subcommand(arg_matches: &ArgMatches, entries: &Entries, to
     let Some(mut entry) = entries.choose(entry_match.to_uppercase().as_str()) else {
         return Ok(PO::Terminate)
     };
-    let hour_diff: f64 = match arg_matches.get_one::<String>("hour") {
-        Some(val) => val.parse::<f64>().unwrap_or(0.0),
-        None => 0.0,
-    };
-    let minute_diff: f64 = match arg_matches.get_one::<String>("minute") {
-        Some(val) => val.parse::<f64>().unwrap_or(0.0),
-        None => 0.0,
-    };
-    let second_diff: f64 = match arg_matches.get_one::<String>("second") {
-        Some(val) => val.parse::<f64>().unwrap_or(0.0),
-        None => 0.0,
-    };
+    let hour_diff: f64 = *arg_matches.get_one::<f64>("hour").unwrap_or(&0.0);
+    let minute_diff: f64 = *arg_matches.get_one::<f64>("minute").unwrap_or(&0.0);
+    let second_diff: f64 = *arg_matches.get_one::<f64>("second").unwrap_or(&0.0);
     let total_diff: u128 = (hour_diff * 3_600_000_000_000_f64 + minute_diff * 60_000_000_000_f64 + second_diff * 1_000_000_000_f64) as u128;
 
     if ["add", "plus", "incr", "increase"].iter().any(|s| *s == operation) {
@@ -313,12 +334,59 @@ pub fn process_update_subcommand(arg_matches: &ArgMatches, entries: &Entries, to
     Ok(PO::Terminate)
 }
 
-pub fn process_graph_subcommand(arg_matches: &ArgMatches, entries: Entries) -> anyhow::Result<ProcessOutput> {
-    let Some(arg_matches) = arg_matches.subcommand_matches("graph") else {
-        return Ok(PO::Continue)
+pub fn process_today_subcommand(arg_matches: &ArgMatches, entries: &Entries, today: &SyrDate) -> anyhow::Result<ProcessOutput> {
+    let Some(_) = arg_matches.subcommand_matches("today") else {
+        return Ok(PO::Continue(None))
     };
-    let start_date = SyrDate::new(time::Date::from_calendar_date(2024, time::Month::May, 1).unwrap());
-    let end_date = SyrDate::new(time::Date::from_calendar_date(2024, time::Month::May, 15).unwrap());
+
+    let sum: u128 = entries.iter().map(|entry| entry.get_block_duration(today)).sum();
+    println!("=> {}", ns_to_pretty_string(sum));
+
+    Ok(PO::Terminate)
+}
+
+pub fn process_prune_subcommand(arg_matches: &ArgMatches, mut entries: Entries) -> anyhow::Result<ProcessOutput> {
+    let Some(arg_matches) = arg_matches.subcommand_matches("prune") else {
+        return Ok(PO::Continue(Some(entries)))
+    };
+    let Some(cutoff_date) = arg_matches.get_one::<String>("date") else {
+        return Ok(PO::Terminate)
+    };
+    let cutoff_date = SyrDate::try_from(cutoff_date.as_str())?;
+    for entry in entries.iter_mut() {
+        entry.prune(&cutoff_date)?;
+    }
+    Ok(PO::Terminate)
+}
+
+pub fn process_graph_subcommand(arg_matches: &ArgMatches, entries: Entries, today: &SyrDate) -> anyhow::Result<ProcessOutput> {
+    let Some(arg_matches) = arg_matches.subcommand_matches("graph") else {
+        return Ok(PO::Continue(Some(entries)))
+    };
+
+    if let Some(num) = arg_matches.get_one::<usize>("days") {
+        let mut start_date = *today;
+        for _ in 0..*num {
+            start_date = start_date
+                .previous_day()
+                .ok_or(crate::error::Error{})
+                .context("invalid number of days back, this is highly unlikely")?
+                .into();
+        }
+        graph::graph(entries, start_date, *today)?;
+        return Ok(PO::Terminate);
+    }
+
+    let Some(start_date) = arg_matches.get_one::<String>("start") else {
+        return Ok(PO::Terminate)
+    };
+    let start_date = SyrDate::try_from(start_date.as_str())?;
+
+    let Some(end_date) = arg_matches.get_one::<String>("end") else {
+        return Ok(PO::Terminate)
+    };
+    let end_date = SyrDate::try_from(end_date.as_str())?;
+
     crate::data::graph::graph(entries, start_date, end_date)?;
     Ok(PO::Terminate)
 }
@@ -326,7 +394,7 @@ pub fn process_graph_subcommand(arg_matches: &ArgMatches, entries: Entries) -> a
 /*
 pub fn process__subcommand(arg_matches: &ArgMatches, entries: &Entries) -> anyhow::Result<ProcessOutput> {
     let Some(arg_matches) = arg_matches.subcommand_matches("") else {
-        return Ok(PO::Continue)
+        return Ok(PO::Continue(None))
     };
 
     

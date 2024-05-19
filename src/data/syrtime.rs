@@ -1,14 +1,14 @@
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 use anyhow::Context;
 use serde::{Serialize, Deserialize, de::Visitor};
 use itertools::Itertools;
 
 // u128 representing nanoseconds
 #[derive(Clone, Default, Serialize, Deserialize)]
-pub(super) struct Blocs (HashMap<SyrDate, u128>);
+pub(super) struct Blocs (BTreeMap<SyrDate, u128>);
 
 impl std::ops::Deref for Blocs {
-    type Target = HashMap<SyrDate, u128>;
+    type Target = BTreeMap<SyrDate, u128>;
     fn deref(&self) -> &Self::Target {
         &self.0
     }
@@ -64,8 +64,13 @@ impl std::fmt::Display for Blocs {
     }
 }
 
+impl Blocs {
+    pub(super) fn prune(&mut self, cutoff_date: &SyrDate) {
+        self.retain(|key, _| key >= cutoff_date)
+    }
+}
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct SyrDate(time::Date);
 
 impl SyrDate {
@@ -73,12 +78,11 @@ impl SyrDate {
         Self(date)
     }
     pub fn expand_from_bounds(start: Self, end: Self) -> Vec<Self> {
-        let mut dates: Vec<SyrDate> = Vec::new();
-        dates.push(start.clone());
+        let mut dates: Vec<SyrDate> = vec![start];
         let mut date = start;
         while date < end {
             date = date.next_day().unwrap_or(*end).into();
-            dates.push(date.clone())
+            dates.push(date)
         }
         dates
     }

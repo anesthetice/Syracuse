@@ -8,12 +8,13 @@ mod error;
 mod utils;
 
 use anyhow::Context;
-use data::{graph, internal::Entries, syrtime::SyrDate};
 use crossterm::style::Stylize;
 use directories::ProjectDirs;
+
 use cli::{
-    process_add_subcommand, process_graph_subcommand, process_list_subcommand, process_remove_subcommand, process_start_subcommand, process_update_subcommand, ProcessOutput as PO
+    process_add_subcommand, process_graph_subcommand, process_list_subcommand, process_prune_subcommand, process_remove_subcommand, process_start_subcommand, process_today_subcommand, process_update_subcommand, ProcessOutput as PO
 };
+use data::{internal::Entries, syrtime::SyrDate};
 
 fn main() -> anyhow::Result<()> {
     // start of initialization
@@ -46,7 +47,7 @@ fn main() -> anyhow::Result<()> {
             }
         }
     };
-
+    
     let entries = Entries::load()?;
     // end of initialization
 
@@ -54,32 +55,42 @@ fn main() -> anyhow::Result<()> {
     let arg_matches = command.get_matches();
 
     match process_add_subcommand(&arg_matches, &entries)? {
-        PO::Continue => (),
+        PO::Continue(_) => (),
         PO::Terminate => return Ok(()),
     }
 
     match process_list_subcommand(&arg_matches, &entries)? {
-        PO::Continue => (),
+        PO::Continue(_) => (),
         PO::Terminate => return Ok(()),
     }
 
     match process_remove_subcommand(&arg_matches, &entries)? {
-        PO::Continue => (),
+        PO::Continue(_) => (),
         PO::Terminate => return Ok(()),
     }
 
     match process_start_subcommand(&arg_matches, &entries, &date)? {
-        PO::Continue => (),
+        PO::Continue(_) => (),
         PO::Terminate => return Ok(()),
     }
 
     match process_update_subcommand(&arg_matches, &entries, &date)? {
-        PO::Continue => (),
+        PO::Continue(_) => (),
         PO::Terminate => return Ok(()),
     }
+
+    match process_today_subcommand(&arg_matches, &entries, &date)? {
+        PO::Continue(_) => (),
+        PO::Terminate => return Ok(()),
+    }
+
+    let entries = match process_prune_subcommand(&arg_matches, entries)? {
+        PO::Continue(entries) => entries.unwrap(),
+        PO::Terminate => return Ok(()),
+    };
     
-    match process_graph_subcommand(&arg_matches, entries)? {
-        PO::Continue => (),
+    match process_graph_subcommand(&arg_matches, entries, &date)? {
+        PO::Continue(_) => (),
         PO::Terminate => return Ok(()),
     }
     

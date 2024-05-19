@@ -39,7 +39,7 @@ pub struct Config {
     // the number of points between a date and the next one that will be interpolated when graphing the sum of entries
     pub graph_nb_interpolated_points: usize,
     // marker size for entries
-    pub graph_marker_size: usize,
+    pub graph_marker_size: u32,
     // graph background color
     pub graph_background_rgb: (u8, u8, u8),
     // graph foreground color

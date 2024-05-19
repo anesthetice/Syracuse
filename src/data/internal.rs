@@ -249,6 +249,10 @@ impl Entry {
         !(self.name.as_str() == new_entry_name || self.aliases.iter().any(|alias| alias == new_entry_name))
     }
 
+    pub fn get_block_duration(&self, date: &SyrDate) -> u128 {
+        *self.blocs.get(date).unwrap_or(&0)
+    }
+
     pub fn save_to_file(&self) -> anyhow::Result<()> {
         let data = serde_json::to_vec_pretty(&self.blocs)?;
 
@@ -283,10 +287,13 @@ impl Entry {
                 *val -= duration
             }
         }
-        if delete_bloc {
-            if self.blocs.remove(date).is_none() {
-                warn!("failed to decrease duration, could not remove bloc")
-            }
+        if delete_bloc && self.blocs.remove(date).is_none() {
+            warn!("failed to decrease duration, could not remove bloc")
         }
+    }
+
+    pub fn prune(&mut self, cutoff_date: &SyrDate) -> anyhow::Result<()> {
+        self.blocs.prune(cutoff_date);
+        self.save_to_file()
     }
 }

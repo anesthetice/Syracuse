@@ -11,7 +11,7 @@ trait GraphMethods {
 
 impl GraphMethods for Entry {
     fn get_points(&self, dates: &[SyrDate]) -> Vec<(f64, f64)> {
-        dates.into_iter().enumerate().map(|(idx, date)| {
+        dates.iter().enumerate().map(|(idx, date)| {
             match self.blocs.get(date) {
                 Some(nanos) => {
                     // idx + 1 since we pad our graph and 0 is not used
@@ -48,7 +48,7 @@ pub fn graph(entries: Entries, start_date: SyrDate, end_date: SyrDate) -> anyhow
 
     let mut sum_points: Vec<(f64, f64)> = superpoints[0].1.clone();
     for (_, points) in superpoints.iter().skip(1) {
-        for (idx, point) in points.into_iter().enumerate() {
+        for (idx, point) in points.iter().enumerate() {
             sum_points[idx].1 += point.1
         }
     }
@@ -120,13 +120,13 @@ pub fn graph(entries: Entries, start_date: SyrDate, end_date: SyrDate) -> anyhow
                 .map(|coord| 
                     Circle::new(
                         coord,
-                        6,
+                        marker_size,
                         color.stroke_width(2)
                     )
                 ),
         )?
         .label(name)
-        .legend(move |point| Circle::new(point, 6, color.stroke_width(2)));
+        .legend(move |point| Circle::new(point, marker_size, color.stroke_width(2)));
 
         mcw_idx += 1;
         if mcw_idx == mcw_len {
@@ -143,13 +143,13 @@ pub fn graph(entries: Entries, start_date: SyrDate, end_date: SyrDate) -> anyhow
                 .map(|coord|
                     TriangleMarker::new(
                         coord,
-                        6,
+                        marker_size,
                         color.stroke_width(2)
                     )
                 ),
         )?
         .label(name)
-        .legend(move |coord| TriangleMarker::new(coord, 6, color.stroke_width(2)));
+        .legend(move |coord| TriangleMarker::new(coord, marker_size, color.stroke_width(2)));
 
         mcw_idx += 1;
         if mcw_idx == mcw_len {
@@ -166,13 +166,13 @@ pub fn graph(entries: Entries, start_date: SyrDate, end_date: SyrDate) -> anyhow
                 .map(|coord|
                     Cross::new(
                         coord,
-                        6,
+                        marker_size,
                         color.stroke_width(2)
                     )
                 ),
         )?
         .label(name)
-        .legend(move |coord| Cross::new(coord, 6, color.stroke_width(2)));
+        .legend(move |coord| Cross::new(coord, marker_size, color.stroke_width(2)));
 
         mcw_idx += 1;
         if mcw_idx == mcw_len {

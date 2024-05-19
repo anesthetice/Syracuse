@@ -17,7 +17,7 @@ Here are the improvements I am working on
 * modular entry system                                                  ✓
 * increased stability, no mem::transmute                                ✓
 * Smith-Waterman + Needleman-Wunsch algorithms for string matching      ✓
-* makima interpolation for graphs                                       x
-* more graphing options                                                 x
+* makima interpolation for graphs                                       ✓
+* more graphing options                                                 ✓
 * proper directory usage                                                ✓
-* new subcommands, "today", "backup", "propagate"                       x
+* new subcommands, "today", "backup", "prune"                           ~
