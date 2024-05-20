@@ -74,11 +74,22 @@ impl Entries {
             .map(|(_, entry)| {entry})
             .collect();
         
-        match choices.len() {
+        let response = match choices.len() {
             0 => None,
             1 => Self::choose_single(choices[0]),
             2.. => Self::choose_multiple(&choices)
-        }
+        };
+
+        println!(
+            "{} {}",
+            "――>".green(),
+            match response.as_ref() {
+                Some(entry) => &entry.name,
+                None => "None"
+            }
+        );
+
+        response
     }
     fn choose_single(choice: &Entry) -> Option<Entry> {
         println!("{} [Y/n]", choice);
@@ -89,7 +100,7 @@ impl Entries {
                 false
             })
             {
-                continue;
+                continue
             }
             let key = match event::read() {
                 Ok(event::Event::Key(key)) => key,
@@ -101,20 +112,22 @@ impl Entries {
             };
 
             if key.kind != event::KeyEventKind::Press {
-                continue;
+                continue
             }
             match key.code {
                 event::KeyCode::Esc
+                | event::KeyCode::Char('Q')
                 | event::KeyCode::Char('q')
+                | event::KeyCode::Char('N')
                 | event::KeyCode::Char('n') => {
                     exit_clean_input_mode();
-                    break None;
-                }
+                    break None
+                },
                 event::KeyCode::Char('y') | event::KeyCode::Enter => {
                     exit_clean_input_mode();
-                    break Some(choice.clone());
-                }
-                _ => {}
+                    break Some(choice.clone())
+                },
+                _ => (),
             }
         }
     }
@@ -129,7 +142,7 @@ impl Entries {
                 false
             })
             {
-                continue;
+                continue
             }
             let key = match event::read() {
                 Ok(event::Event::Key(key)) => key,
@@ -141,7 +154,7 @@ impl Entries {
             };
 
             if key.kind != event::KeyEventKind::Press {
-                continue;
+                continue
             }
             match key.code {
                 event::KeyCode::Esc
@@ -149,26 +162,36 @@ impl Entries {
                 | event::KeyCode::Char('n') => {
                     exit_clean_input_mode();
                     break None;
-                }
+                },
                 event::KeyCode::Enter => {
                     exit_clean_input_mode();
                     break Some(choices[0].clone());
-                }
+                },
                 event::KeyCode::Char(chr) => {
                     if !chr.is_numeric() {
-                        continue;
+                        continue
                     }
                     let Ok(idx) = chr.to_string().parse::<usize>() else {
-                        continue;
+                        continue
                     };
                     if let Some(entry) = choices.get(idx) {
                         exit_clean_input_mode();
-                        break Some((*entry).clone());
+                        break Some((*entry).clone())
                     }
                 }
                 _ => {}
             }
 
+        }
+    }
+    // path must be validated beforehand
+    pub fn backup(&self, path: std::path::PathBuf) {
+        for entry in self.iter() {
+            if let Err(error) = entry.save_to_file(&path.join(entry.get_filestem() + ".json")) {
+                warn!("failed to back up an entry, due to : {error}")
+            } else {
+                info!("{} backed up", &entry.name)
+            }
         }
     }
 }
@@ -253,14 +276,18 @@ impl Entry {
         *self.blocs.get(date).unwrap_or(&0)
     }
 
-    pub fn save_to_file(&self) -> anyhow::Result<()> {
+    pub fn save(&self) -> anyhow::Result<()> {
+        self.save_to_file(&self.get_filepath())
+    }
+
+    pub(super) fn save_to_file(&self, filepath: &Path) -> anyhow::Result<()> {
         let data = serde_json::to_vec_pretty(&self.blocs)?;
 
         std::fs::OpenOptions::new()
             .create(true)
             .write(true)
             .truncate(true)
-            .open(self.get_filepath())?
+            .open(filepath)?
             .write_all(&data)?;
 
         Ok(())
@@ -292,8 +319,9 @@ impl Entry {
         }
     }
 
-    pub fn prune(&mut self, cutoff_date: &SyrDate) -> anyhow::Result<()> {
-        self.blocs.prune(cutoff_date);
-        self.save_to_file()
+    pub fn prune(&mut self, cutoff_date: &SyrDate) -> anyhow::Result<usize> {
+        let num = self.blocs.prune(cutoff_date);
+        self.save()?;
+        Ok(num)
     }
 }

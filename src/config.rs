@@ -18,6 +18,8 @@ pub struct Config {
     // e.g. western europe : [1,0,0] or [2,0,0] generally depending on daylight saving time
     // you will have to manually change the config to account for changes in your timezone
     pub local_offset: [i8; 3],
+    // default backup path
+    pub backup_path: String,
 
     // threshold for results to be considered
     pub search_threshold: f64,
@@ -35,6 +37,9 @@ pub struct Config {
     // don't ask me why this should be in a config file
     pub animation: AnimationBuilder,
     
+    // empty string means where directory from which syracuse was executed
+    pub graph_output_dir: String,
+    // Linear or Makima interpolation, note that Makima might overshoot
     pub graph_interpolation_method: InterpolationMethod,
     // the number of points between a date and the next one that will be interpolated when graphing the sum of entries
     pub graph_nb_interpolated_points: usize,
@@ -48,8 +53,10 @@ pub struct Config {
     pub graph_coarse_grid_rgb: (u8, u8, u8),
     // graph fine grid color
     pub graph_fine_grid_rgb: (u8, u8, u8),
+    // graph sum line color
+    pub graph_sum_line_rgb: (u8, u8, u8),
     // the colors used for entry markers
-    pub graph_marker_colors: Vec<(u8, u8, u8)>
+    pub graph_marker_rgb: Vec<(u8, u8, u8)>
 }
 
 impl Default for Config {
@@ -59,6 +66,7 @@ impl Default for Config {
             entry_file_name_separtor: "-·-".to_string(),
             autosave_period: 30,
             local_offset: [0, 0, 0],
+            backup_path: "".to_string(),
             search_threshold: 0.0,
             sw_nw_ratio: 0.6,
             match_score: 2,
@@ -71,6 +79,7 @@ impl Default for Config {
                 ("-  ".to_string(), "  -".to_string()),
                 ("\\  ".to_string(), "  \\".to_string()),
             ],
+            graph_output_dir: "".to_string(),
             graph_interpolation_method: InterpolationMethod::Linear,
             graph_nb_interpolated_points: 1500,
             graph_marker_size: 6,
@@ -78,7 +87,8 @@ impl Default for Config {
             graph_foreground_rgb: (205, 214, 244),
             graph_coarse_grid_rgb: (84, 87, 108),
             graph_fine_grid_rgb: (49, 50, 68),
-            graph_marker_colors: vec![
+            graph_sum_line_rgb: (205, 214, 244),
+            graph_marker_rgb: vec![
                 // amaranth pink
                 (243, 167, 186),
                 // cocktail red

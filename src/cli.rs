@@ -1,8 +1,9 @@
-use std::time::{Duration, Instant};
+use std::{path::PathBuf, time::{Duration, Instant}};
 
 use anyhow::Context;
 use clap::{command, value_parser, Arg, ArgAction, ArgMatches, Command};
 use crossterm::{event, style::Stylize};
+use time::OffsetDateTime;
 
 use crate::{
     animation,
@@ -14,7 +15,7 @@ use crate::{
 pub fn cli() -> clap::Command {
     let add_subcommand = Command::new("add")
         .alias("new")
-        .about("Add a new entry to syracuse\naliases: 'new'")
+        .about("Add a new entry to syracuse")
         .long_about("This subcommand is used to add a new entry to syracuse, entries are case-insensitive and can have aliases\naliases: 'new'")
         .arg(Arg::new("entry")
                 .index(1)
@@ -26,8 +27,9 @@ pub fn cli() -> clap::Command {
             );
 
     let list_subcommand = Command::new("list")
-        .about("Lists out all entries")
-        .long_about("This subcommand is used to list out all entries stored in syracuse.json")
+        .alias("ls")
+        .about("List out all entries")
+        .long_about("This subcommand is used to list out all entries stored\naliases: 'ls'")
         .arg(
             Arg::new("full")
                 .short('f')
@@ -42,7 +44,7 @@ pub fn cli() -> clap::Command {
 
     let remove_subcommand = Command::new("remove")
         .aliases(["delete", "del"])
-        .about("Removes a single entry\naliases: 'delete', 'del'")
+        .about("Remove a single entry")
         .long_about("This subcommand is used to remove a single entry at a time from syracuse.json\naliases: 'delete', 'del'")
         .arg(
             Arg::new("entry")
@@ -54,7 +56,7 @@ pub fn cli() -> clap::Command {
 
     let start_subcommand = Command::new("start")
         .aliases(["s", "r", "run", "go", "launch", "begin"])
-        .about("Starts the daily stopwatch for the given entry")
+        .about("Start the daily stopwatch for an entry")
         .long_about("This subcommand is used to start counting up the time spent today on the given entry, will progressively update syracuse.json\naliases: 's', 'r', 'run', 'go', 'launch', 'begin'")
         .arg(
             Arg::new("entry")
@@ -65,7 +67,7 @@ pub fn cli() -> clap::Command {
         );
 
     let update_subcommand = Command::new("update")
-        .about("Manually updates the time of an entry")
+        .about("Manually update the time of an entry")
         .long_about("This subcommand is used to manually increase or decrease the time associated with an entry on a given day")
         .arg(
             Arg::new("operation")
@@ -119,8 +121,19 @@ pub fn cli() -> clap::Command {
         );
     
     let today_subcommand = Command::new("today")
-        .about("Displays time tracked today")
+        .about("Display the time tracked today")
         .long_about("This subcommand is used to display the sum of the time tracked by every single entry for today");
+
+    let backup_subcommand = Command::new("backup")
+        .about("Backup entries")
+        .long_about("This subcommand is used to backup all entries to a directory specified in the configuration file or directly provided by the user")
+        .arg(
+            Arg::new("path")
+                .help("specified path")
+                .index(1)
+                .action(ArgAction::Set)
+        );
+
 
     let prune_subcommand = Command::new("prune")
         .about("Removes old blocs from entries")
@@ -167,6 +180,7 @@ pub fn cli() -> clap::Command {
         update_subcommand,
         today_subcommand,
         prune_subcommand,
+        backup_subcommand,
         graph_subcommand
     ])
 }
@@ -182,8 +196,7 @@ pub fn process_add_subcommand(arg_matches: &ArgMatches, entries: &Entries) -> an
         return Ok(PO::Continue(None))
     };
     let Some(entry_match) = arg_matches.get_many::<String>("entry") else {
-        info!("invalid entries");
-        return Ok(PO::Terminate)
+        Err(error::Error{}).context("failed to parse entry as string")?
     };
     let mut names: Vec<String> = entry_match.map(|s| s.to_uppercase()).collect();
 
@@ -204,7 +217,8 @@ pub fn process_add_subcommand(arg_matches: &ArgMatches, entries: &Entries) -> an
         }
     }
 
-    Entry::new(names.remove(0), names).save_to_file()?;
+    Entry::new(names.remove(0), names).save()?;
+    info!("new entry added");
     Ok(PO::Terminate)       
 }
 
@@ -225,15 +239,15 @@ pub fn process_remove_subcommand(arg_matches: &ArgMatches, entries: &Entries) ->
         return Ok(PO::Continue(None))
     };
     let Some(entry_match) = arg_matches.get_one::<String>("entry") else {
-        return Ok(PO::Terminate)
+        Err(error::Error{}).context("failed to parse entry as string")?
     };
 
-    if let Some(entry) = entries.choose(entry_match.to_uppercase().as_str()) {
-        entry.delete()?;
-        Ok(PO::Terminate)
-    } else {
-        Ok(PO::Terminate)
-    }
+    let Some(entry) = entries.choose(entry_match.to_uppercase().as_str()) else {
+        return Ok(PO::Terminate)
+    };
+    entry.delete()?;
+    info!("entry deleted");
+    Ok(PO::Terminate)
 }
 
 pub fn process_start_subcommand(arg_matches: &ArgMatches, entries: &Entries, today: &SyrDate) -> anyhow::Result<ProcessOutput> {
@@ -241,7 +255,7 @@ pub fn process_start_subcommand(arg_matches: &ArgMatches, entries: &Entries, tod
         return Ok(PO::Continue(None))
     };
     let Some(entry_match) = arg_matches.get_one::<String>("entry") else {
-        return Ok(PO::Terminate)
+        Err(error::Error{}).context("failed to parse entry as string")?
     };
     let Some(mut entry) = entries.choose(entry_match.to_uppercase().as_str()) else {
         return Ok(PO::Terminate)
@@ -275,7 +289,7 @@ pub fn process_start_subcommand(arg_matches: &ArgMatches, entries: &Entries, tod
             }
         }
         if instant.duration_since(autosave_instant) > autosave_perdiod {
-            if let Err(error) = entry.save_to_file() {
+            if let Err(error) = entry.save() {
                 file_save_error_counter += 1;
                 if file_save_error_counter > 2 {
                     warn!("maximum number of failed autosaves reached, exiting...");
@@ -293,7 +307,7 @@ pub fn process_start_subcommand(arg_matches: &ArgMatches, entries: &Entries, tod
     }
     exit_clean_input_mode();
     println!();
-    entry.save_to_file().context("failed to save entry progress")?;
+    entry.save().context("failed to save entry progress")?;
     Ok(PO::Terminate)
 }
 
@@ -306,10 +320,10 @@ pub fn process_update_subcommand(arg_matches: &ArgMatches, entries: &Entries, to
         None => *today,
     };
     let Some(operation) = arg_matches.get_one::<String>("operation") else {
-        return Ok(PO::Terminate)
+        Err(error::Error{}).context("failed to parse operation as string")?
     };
     let Some(entry_match) = arg_matches.get_one::<String>("entry") else {
-        return Ok(PO::Terminate)
+        Err(error::Error{}).context("failed to parse entry as string")?
     };
     let Some(mut entry) = entries.choose(entry_match.to_uppercase().as_str()) else {
         return Ok(PO::Terminate)
@@ -321,16 +335,15 @@ pub fn process_update_subcommand(arg_matches: &ArgMatches, entries: &Entries, to
 
     if ["add", "plus", "incr", "increase"].iter().any(|s| *s == operation) {
         entry.increase_bloc_duration(&date, total_diff);
-        entry.save_to_file()?;
+        entry.save()?;
     }
     else if ["sub", "rem", "remove", "minus", "decr", "decrease"].iter().any(|s| *s == operation) {
         entry.decrease_bloc_duration(&date, total_diff);
-        entry.save_to_file()?;
+        entry.save()?;
     }
     else {
-        info!("invalid operation, got : {}", operation);
+        warn!("unknown operation: '{}'", operation);
     }
-    
     Ok(PO::Terminate)
 }
 
@@ -340,8 +353,41 @@ pub fn process_today_subcommand(arg_matches: &ArgMatches, entries: &Entries, tod
     };
 
     let sum: u128 = entries.iter().map(|entry| entry.get_block_duration(today)).sum();
-    println!("=> {}", ns_to_pretty_string(sum));
+    println!("{} {}", "――>".green(), ns_to_pretty_string(sum).bold());
 
+    Ok(PO::Terminate)
+}
+
+pub fn process_backup_subcommand(arg_matches: &ArgMatches, entries: &Entries, today_datetime: &OffsetDateTime) -> anyhow::Result<ProcessOutput> {
+    let Some(arg_matches) = arg_matches.subcommand_matches("backup") else {
+        return Ok(PO::Continue(None))
+    };
+    let folder = format!(
+        "{:0>4}_{:0>2}_{:0>2}-{:0>2}_{:0>2}_{:0>2}/",
+        today_datetime.year(),
+        today_datetime.month() as u8,
+        today_datetime.day(),
+        today_datetime.hour(),
+        today_datetime.minute(),
+        today_datetime.second(),
+    );
+
+    let path = match arg_matches.get_one::<String>("path") {
+        Some(string) => PathBuf::from(string),
+        None => PathBuf::from(config::Config::get().backup_path.as_str()),
+    }.join(folder);
+
+    if let Err(error) = std::fs::create_dir(&path) {
+        if error.kind() != std::io::ErrorKind::AlreadyExists {
+            warn!("failed to create the following directory : {:?}, caused by : {}", &path, error);
+            return Ok(PO::Terminate)
+        } else {
+            info!("directory already exists, highly unusual");
+        }
+    }
+    println!("backing up to ――> {:?}", &path);
+
+    entries.backup(path);
     Ok(PO::Terminate)
 }
 
@@ -350,12 +396,14 @@ pub fn process_prune_subcommand(arg_matches: &ArgMatches, mut entries: Entries) 
         return Ok(PO::Continue(Some(entries)))
     };
     let Some(cutoff_date) = arg_matches.get_one::<String>("date") else {
-        return Ok(PO::Terminate)
+        Err(error::Error{}).context("failed to parse date as string")?
     };
     let cutoff_date = SyrDate::try_from(cutoff_date.as_str())?;
+    let mut sum: usize = 0;
     for entry in entries.iter_mut() {
-        entry.prune(&cutoff_date)?;
+        sum += entry.prune(&cutoff_date)?;
     }
+    println!("{}", format!("{} {} pruned", sum, if sum==1 {"bloc"} else {"blocs"}).bold());
     Ok(PO::Terminate)
 }
 
@@ -378,26 +426,19 @@ pub fn process_graph_subcommand(arg_matches: &ArgMatches, entries: Entries, toda
     }
 
     let Some(start_date) = arg_matches.get_one::<String>("start") else {
-        return Ok(PO::Terminate)
+        Err(error::Error{}).context("failed to parse starting date as string")?
     };
     let start_date = SyrDate::try_from(start_date.as_str())?;
 
     let Some(end_date) = arg_matches.get_one::<String>("end") else {
-        return Ok(PO::Terminate)
+        Err(error::Error{}).context("failed to parse ending date as string")?
     };
     let end_date = SyrDate::try_from(end_date.as_str())?;
+
+    if start_date > end_date {
+        Err(error::Error{}).context("starting date is larger than ending date")?
+    }
 
     crate::data::graph::graph(entries, start_date, end_date)?;
     Ok(PO::Terminate)
 }
-
-/*
-pub fn process__subcommand(arg_matches: &ArgMatches, entries: &Entries) -> anyhow::Result<ProcessOutput> {
-    let Some(arg_matches) = arg_matches.subcommand_matches("") else {
-        return Ok(PO::Continue(None))
-    };
-
-    
-    Ok(PO::Terminate)
-}
-*/

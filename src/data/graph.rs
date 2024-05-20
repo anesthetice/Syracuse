@@ -1,9 +1,11 @@
 use anyhow::Context;
+use crossterm::style::Stylize;
 use itertools::Itertools;
 use plotters::prelude::*;
+use std::path::PathBuf;
 
 use super::{internal::{Entries, Entry}, syrtime::SyrDate};
-use crate::{config::Config, warn};
+use crate::{config::Config, info, warn};
 
 trait GraphMethods {
     fn get_points(&self, dates: &[SyrDate]) -> Vec<(f64, f64)>;
@@ -24,13 +26,14 @@ impl GraphMethods for Entry {
 }
 
 pub fn graph(entries: Entries, start_date: SyrDate, end_date: SyrDate) -> anyhow::Result<()> {
+    info!("initializing...");
     let bg_rgb = rgb_translate(Config::get().graph_background_rgb);
     let fg_rgb = rgb_translate(Config::get().graph_foreground_rgb);
     let coarse_grid_rgb = rgb_translate(Config::get().graph_coarse_grid_rgb);
     let fine_grid_rgb = rgb_translate(Config::get().graph_fine_grid_rgb);
     let marker_size = Config::get().graph_marker_size;
 
-    let marker_color_wheel: Vec<RGBColor> = Config::get().graph_marker_colors.clone().into_iter().map(rgb_translate).collect();
+    let marker_color_wheel: Vec<RGBColor> = Config::get().graph_marker_rgb.clone().into_iter().map(rgb_translate).collect();
     let mcw_len = marker_color_wheel.len();
     let mut mcw_idx: usize = 0;
 
@@ -57,8 +60,24 @@ pub fn graph(entries: Entries, start_date: SyrDate, end_date: SyrDate) -> anyhow
     let image_width: u32 = dates.len() as u32 * 100 + 500;
     let image_height: u32 = 1080;
 
+    let filepath = {
+        let path = Config::get().graph_output_dir.clone();
+        if path.is_empty() {
+            PathBuf::from("graph.png")
+        } else {
+            let path = PathBuf::from(path);
+            if path.is_dir() {
+                path.join("graph.png")
+            } else {
+                warn!("invalid directory, defaulting to current directory");
+                PathBuf::from("graph.png")
+            }
+        }
+    };
+
+    info!("drawing...");
     let root =
-        BitMapBackend::new("graph.png", (image_width, image_height)).into_drawing_area();
+        BitMapBackend::new(&filepath, (image_width, image_height)).into_drawing_area();
     root.fill::<RGBColor>(&bg_rgb)?;
 
     let mut ctx = ChartBuilder::on(&root)
@@ -180,6 +199,10 @@ pub fn graph(entries: Entries, start_date: SyrDate, end_date: SyrDate) -> anyhow
         }
     }
 
+    if !superpoints.is_empty() {
+        warn!("failed to graph every single entry, consider adding more colors in the config or tightening the date span");
+    }
+
     ctx.configure_series_labels()
         .position(SeriesLabelPosition::UpperRight)
         .border_style(fg_rgb)
@@ -187,6 +210,7 @@ pub fn graph(entries: Entries, start_date: SyrDate, end_date: SyrDate) -> anyhow
         .label_font(("sans-serif", 15.0).with_color(fg_rgb))
         .draw()?;
 
+    info!("saving...");
     Ok(root.present()?)
 }
 

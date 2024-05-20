@@ -5,7 +5,7 @@ use std::io::stdout;
 macro_rules! info {
     ($($args:tt)*) => {
         if $crate::config::Config::get().debug {
-            eprintln!("[ {} ] {}", "INFO".cyan(), format_args!($($args)*))
+            eprintln!("[{}]  {}", "INFO".cyan(), format_args!($($args)*))
         }
     };
 }
@@ -13,7 +13,7 @@ macro_rules! info {
 #[macro_export]
 macro_rules! warn {
     ($($args:tt)*) => {
-        eprintln!("[ {} ] {}", "WARN".yellow(), format_args!($($args)*))
+        eprintln!("[{}]  {}", "WARN".yellow(), format_args!($($args)*))
     };
 }
 

@@ -20,4 +20,4 @@ Here are the improvements I am working on
 * makima interpolation for graphs                                       ✓
 * more graphing options                                                 ✓
 * proper directory usage                                                ✓
-* new subcommands, "today", "backup", "prune"                           ~
+* new subcommands, "today", "backup", "prune"                           ✓

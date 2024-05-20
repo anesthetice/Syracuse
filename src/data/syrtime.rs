@@ -65,8 +65,10 @@ impl std::fmt::Display for Blocs {
 }
 
 impl Blocs {
-    pub(super) fn prune(&mut self, cutoff_date: &SyrDate) {
-        self.retain(|key, _| key >= cutoff_date)
+    pub(super) fn prune(&mut self, cutoff_date: &SyrDate) -> usize {
+        let _tmp = self.len();
+        self.retain(|key, _| key >= cutoff_date);
+        _tmp - self.len()
     }
 }
 
