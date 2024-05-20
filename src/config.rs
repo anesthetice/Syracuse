@@ -68,7 +68,7 @@ impl Default for Config {
             local_offset: [0, 0, 0],
             backup_path: "".to_string(),
             search_threshold: 0.0,
-            sw_nw_ratio: 0.6,
+            sw_nw_ratio: 0.5,
             match_score: 2,
             mismatch_penalty: -1,
             gap_penalty: -1,

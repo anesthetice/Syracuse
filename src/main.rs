@@ -58,6 +58,7 @@ fn main() -> anyhow::Result<()> {
 
     let command = cli::cli();
     let arg_matches = command.get_matches();
+    println!();
 
     match process_add_subcommand(&arg_matches, &entries)? {
         PO::Continue(_) => (),

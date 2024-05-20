@@ -43,9 +43,9 @@ pub fn cli() -> clap::Command {
         );
 
     let remove_subcommand = Command::new("remove")
-        .aliases(["delete", "del"])
+        .aliases(["rm", "delete", "del"])
         .about("Remove a single entry")
-        .long_about("This subcommand is used to remove a single entry at a time from syracuse.json\naliases: 'delete', 'del'")
+        .long_about("This subcommand is used to remove a single entry at a time from syracuse.json\naliases: 'rm', 'delete', 'del'")
         .arg(
             Arg::new("entry")
                 .index(1)

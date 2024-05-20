@@ -174,7 +174,7 @@ impl Entries {
                     let Ok(idx) = chr.to_string().parse::<usize>() else {
                         continue
                     };
-                    if let Some(entry) = choices.get(idx) {
+                    if let Some(entry) = choices.get(idx-1) {
                         exit_clean_input_mode();
                         break Some((*entry).clone())
                     }
