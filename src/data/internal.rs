@@ -1,16 +1,19 @@
+use anyhow::Context;
+use crossterm::{event, style::Stylize};
 use itertools::Itertools;
-use serde::{de::Visitor, Deserialize, Serialize};
-use std::{
-    collections::HashMap,
-    io::{Read, Write},
-    ops::{AddAssign, SubAssign},
-    time::Duration,
-};
+use crate::{algorithms, info, utils::{enter_clean_input_mode, exit_clean_input_mode}, warn};
 
-use crate::utils::{duration_as_pretty_string, parse_date};
+use super::syrtime::{Blocs, SyrDate};
+use std::{io::{Read, Write}, path::Path};
 
-#[derive(Debug, Default, Serialize, Deserialize)]
+
 pub struct Entries(Vec<Entry>);
+
+impl From<Vec<Entry>> for Entries {
+    fn from(value: Vec<Entry>) -> Self {
+        Self(value)
+    }
+}
 
 impl std::ops::Deref for Entries {
     type Target = Vec<Entry>;
@@ -26,358 +29,299 @@ impl std::ops::DerefMut for Entries {
 }
 
 impl Entries {
-    const MAIN_FILEPATH: &'static str = "./syracuse.json";
-    pub const BACKUPS_PATH: &'static str = "./backups/";
-
     pub fn load() -> anyhow::Result<Self> {
-        let mut buffer: Vec<u8> = Vec::new();
-        std::fs::OpenOptions::new()
-            .read(true)
-            .open(Self::MAIN_FILEPATH)?
-            .read_to_end(&mut buffer)?;
-        Ok(serde_json::from_slice(&buffer)?)
-    }
-
-    pub fn save(&self) -> anyhow::Result<()> {
-        let data = serde_json::to_vec_pretty(&self)?;
-        Ok(std::fs::OpenOptions::new()
-            .write(true)
-            .truncate(true)
-            .create(true)
-            .open(Self::MAIN_FILEPATH)?
-            .write_all(&data)?)
-    }
-
-    pub fn backup(&self) -> anyhow::Result<()> {
-        let data = serde_json::to_vec_pretty(&self)?;
-        let timestamp = time::OffsetDateTime::now_utc().unix_timestamp();
-        let filepath: String = format!("{}syracuse-backup-{}.json", Self::BACKUPS_PATH, timestamp);
-        Ok(std::fs::OpenOptions::new()
-            .write(true)
-            .truncate(true)
-            .create(true)
-            .open(filepath)?
-            .write_all(&data)?)
-    }
-
-    pub fn search(&self, search_key: &str, threshold: f64) -> Vec<&Entry> {
-        let search_key = search_key.to_uppercase();
-        self.iter()
-            .flat_map(|entry| {
-                // returns the highest score found within the entry's names
-                let max_score = entry
-                    .names
-                    .iter()
-                    .map(|string| Entry::get_score(&search_key, string))
-                    .fold(0.0, |max, x| if x > max { x } else { max });
-                if max_score >= threshold {
-                    Some((max_score, entry))
-                } else {
-                    None
+        let entries = std::path::Path::read_dir(crate::dirs::Dirs::get().data_dir())?
+            .flat_map(|res| {
+                let Ok(entry) = res.map_err(|err| {warn!("{}", err);}) else {
+                    return None
+                };
+                let path = entry.path();
+                if path.extension()?.to_str()? != "json" {
+                    return None
+                }
+                match Entry::from_file(&path) {
+                    Ok(entry) => Some(entry),
+                    Err(error) => {
+                        warn!("{}", error);
+                        None
+                    }
                 }
             })
-            .sorted_by(|(a, _), (b, _)| b.partial_cmp(a).unwrap_or(std::cmp::Ordering::Equal))
-            .map(|(_, entry)| entry)
-            .collect()
-    }
+            .collect::<Vec<Entry>>().into();
 
-    pub fn clean(&mut self) {
-        for entry in self.iter_mut() {
-            entry
-                .blocs
-                .retain(|_, duration| *duration != Duration::ZERO)
+        Ok(entries)
+    }
+    pub fn choose(&self, query: &str) -> Option<Entry> {
+        let choices: Vec<&Entry> = self.iter()
+            .map(|entry| {
+                (entry.aliases
+                    .iter()
+                    .chain(std::iter::once(&entry.name))
+                    .map(|string| {
+                        let sw_factor = crate::config::Config::get().sw_nw_ratio;
+                        sw_factor * algorithms::smith_waterman(string, query)
+                        + (1.0-sw_factor) * algorithms::needleman_wunsch(string, query)
+                    })
+                    .fold(-1.0, |acc, x| {if x > acc {x} else {acc}}),
+                entry)
+            })
+            .filter(|(score, entry)| {
+                info!("{:<15}:   {:.3}", entry.name, score);
+                *score >= crate::config::Config::get().search_threshold
+            })
+            .sorted_by(|(a, _), (b, _)| {b.partial_cmp(a).unwrap_or(std::cmp::Ordering::Equal)})
+            .take(3)
+            .map(|(_, entry)| {entry})
+            .collect();
+        
+        let response = match choices.len() {
+            0 => None,
+            1 => Self::choose_single(choices[0]),
+            2.. => Self::choose_multiple(&choices)
+        };
+
+        println!(
+            "{} {}",
+            "――>".green(),
+            match response.as_ref() {
+                Some(entry) => &entry.name,
+                None => "None"
+            }
+        );
+
+        response
+    }
+    fn choose_single(choice: &Entry) -> Option<Entry> {
+        println!("{} [Y/n]", choice);
+        enter_clean_input_mode();
+        loop {
+            if !event::poll(std::time::Duration::from_millis(200)).unwrap_or_else(|err| {
+                warn!("event polling issue, {}", err);
+                false
+            })
+            {
+                continue
+            }
+            let key = match event::read() {
+                Ok(event::Event::Key(key)) => key,
+                Ok(_) => continue,
+                Err(error) => {
+                    warn!("event read issue, {}", error);
+                    continue
+                },
+            };
+
+            if key.kind != event::KeyEventKind::Press {
+                continue
+            }
+            match key.code {
+                event::KeyCode::Esc
+                | event::KeyCode::Char('Q')
+                | event::KeyCode::Char('q')
+                | event::KeyCode::Char('N')
+                | event::KeyCode::Char('n') => {
+                    exit_clean_input_mode();
+                    break None
+                },
+                event::KeyCode::Char('y') | event::KeyCode::Enter => {
+                    exit_clean_input_mode();
+                    break Some(choice.clone())
+                },
+                _ => (),
+            }
+        }
+    }
+    fn choose_multiple(choices: &[&Entry]) -> Option<Entry> {
+        for (idx, choice) in choices.iter().enumerate() {
+            println!("{}. {}", idx + 1, choice);
+        }
+        enter_clean_input_mode();
+        loop {
+            if !event::poll(std::time::Duration::from_millis(200)).unwrap_or_else(|err| {
+                warn!("event polling issue, {}", err);
+                false
+            })
+            {
+                continue
+            }
+            let key = match event::read() {
+                Ok(event::Event::Key(key)) => key,
+                Ok(_) => continue,
+                Err(error) => {
+                    warn!("event read issue, {}", error);
+                    continue
+                },
+            };
+
+            if key.kind != event::KeyEventKind::Press {
+                continue
+            }
+            match key.code {
+                event::KeyCode::Esc
+                | event::KeyCode::Char('q')
+                | event::KeyCode::Char('n') => {
+                    exit_clean_input_mode();
+                    break None;
+                },
+                event::KeyCode::Enter => {
+                    exit_clean_input_mode();
+                    break Some(choices[0].clone());
+                },
+                event::KeyCode::Char(chr) => {
+                    if !chr.is_numeric() {
+                        continue
+                    }
+                    let Ok(idx) = chr.to_string().parse::<usize>() else {
+                        continue
+                    };
+                    if let Some(entry) = choices.get(idx) {
+                        exit_clean_input_mode();
+                        break Some((*entry).clone())
+                    }
+                }
+                _ => {}
+            }
+
+        }
+    }
+    // path must be validated beforehand
+    pub fn backup(&self, path: std::path::PathBuf) {
+        for entry in self.iter() {
+            if let Err(error) = entry.save_to_file(&path.join(entry.get_filestem() + ".json")) {
+                warn!("failed to back up an entry, due to : {error}")
+            } else {
+                info!("{} backed up", &entry.name)
+            }
         }
     }
 }
 
-#[derive(Debug, Default, PartialEq, Serialize, Deserialize)]
+#[derive(Clone)]
 pub struct Entry {
-    /// an entry can have multiple names
-    pub names: Vec<String>,
-    /// keeps track of time spent when an entry is "active"
-    pub blocs: Blocs,
+    pub(super) name: String,
+    pub(super) aliases: Vec<String>,
+    pub(super) blocs: Blocs,
+}
+
+impl std::fmt::Debug for Entry {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}; {}\n―――――――――――――――\n{}",
+            self.name,
+            self.aliases.join(", "),
+            self.blocs
+        )
+    }
 }
 
 impl std::fmt::Display for Entry {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
-            "[{}]",
-            self.names
-                .iter()
-                .enumerate()
-                .fold(String::new(), |acc, (idx, slice)| {
-                    if self.names.len() != idx + 1 {
-                        acc + slice + ", "
-                    } else {
-                        acc + slice
-                    }
-                })
+            "{}; {}",
+            self.name,
+            self.aliases.join(", ")
         )
     }
 }
 
 impl Entry {
-    pub fn new(names: Vec<String>, blocs: Blocs) -> Self {
-        Self { names, blocs }
+    pub fn new(name: String, aliases: Vec<String>) -> Self {
+        Self { name, aliases, blocs: Blocs::default() }
     }
 
-    pub fn is_name(&self, other_name: &String) -> bool {
-        self.names.contains(other_name)
-    }
-
-    pub fn update_bloc_add(&mut self, date: &SyrDate, additional_duration: Duration) {
-        if let Some(duration) = self.blocs.get_mut(date) {
-            duration.add_assign(additional_duration);
-        } else {
-            self.blocs.insert(date.to_owned(), additional_duration);
-        }
-    }
-
-    pub fn update_bloc_sub(&mut self, date: &SyrDate, reduced_duration: Duration) {
-        if let Some(duration) = self.blocs.get_mut(date) {
-            if *duration > reduced_duration {
-                duration.sub_assign(reduced_duration);
+    fn from_file(filepath: &Path) -> anyhow::Result<Self> {
+        let separator: &str = crate::config::Config::get().entry_file_name_separtor.as_str();
+        let file_name = filepath.file_stem().with_context(|| format!("failed to obtain filestem of : {}", filepath.display()))?
+            .to_str().with_context(|| format!("filename OsStr cannot be converted to valid utf-8 : {}", filepath.display()))?;
+        let (name, aliases) : (String, Vec<String>) = {
+            if let Some((name, aliases)) = file_name.split_once(separator) {
+                (name.to_string(), aliases.split(separator).map(|s| s.to_string()).collect())
             } else {
-                duration.sub_assign(*duration)
+                (file_name.to_string(), Vec::new())
             }
+        };
+
+        let mut buffer: Vec<u8> = Vec::new();
+        std::fs::OpenOptions::new()
+            .create(false)
+            .read(true)
+            .open(filepath)?
+            .read_to_end(&mut buffer)?;
+
+        Ok(Self { name, aliases, blocs: serde_json::from_slice(&buffer)? })   
+    }
+
+    pub fn get_filestem(&self) -> String {
+        let separator: &str = crate::config::Config::get().entry_file_name_separtor.as_str();
+        let mut filestem = self.name.clone();
+        if !self.aliases.is_empty() {filestem.push_str(separator)}
+        filestem.push_str(&self.aliases.join(separator));
+        filestem
+    }
+
+    fn get_filepath(&self) -> std::path::PathBuf {
+        crate::dirs::Dirs::get()
+            .data_dir()
+            .join(self.get_filestem() + ".json")
+    }
+
+    // true = valid, false = invalid
+    pub fn check_new_entry_name_validity(&self, new_entry_name: &str) -> bool {
+        !(self.name.as_str() == new_entry_name || self.aliases.iter().any(|alias| alias == new_entry_name))
+    }
+
+    pub fn get_block_duration(&self, date: &SyrDate) -> u128 {
+        *self.blocs.get(date).unwrap_or(&0)
+    }
+
+    pub fn save(&self) -> anyhow::Result<()> {
+        self.save_to_file(&self.get_filepath())
+    }
+
+    pub(super) fn save_to_file(&self, filepath: &Path) -> anyhow::Result<()> {
+        let data = serde_json::to_vec_pretty(&self.blocs)?;
+
+        std::fs::OpenOptions::new()
+            .create(true)
+            .write(true)
+            .truncate(true)
+            .open(filepath)?
+            .write_all(&data)?;
+
+        Ok(())
+    }
+
+    pub fn delete(self) -> anyhow::Result<()> {
+        Ok(std::fs::remove_file(self.get_filepath())?)
+    }
+
+    pub fn increase_bloc_duration(&mut self, date: &SyrDate, duration: u128) {
+        if let Some(val) = self.blocs.get_mut(date) {
+            *val += duration
         } else {
-            self.blocs.insert(date.to_owned(), Duration::ZERO);
+            self.blocs.insert(*date, duration);
         }
     }
 
-    pub(self) fn get_score(search_key: &str, string: &str) -> f64 {
-        search_key
-            .chars()
-            .zip(string.chars())
-            .map(|(key, s)| if key == s { 1_u8 } else { 0_u8 })
-            .sum::<u8>() as f64
-            * (1.0 / search_key.len() as f64)
+    pub fn decrease_bloc_duration(&mut self, date: &SyrDate, duration: u128) {
+        let mut delete_bloc: bool = false;
+        if let Some(val) = self.blocs.get_mut(date) {
+            if duration > *val {
+                delete_bloc = true;
+            } else {
+                *val -= duration
+            }
+        }
+        if delete_bloc && self.blocs.remove(date).is_none() {
+            warn!("failed to decrease duration, could not remove bloc")
+        }
     }
 
-    pub(super) fn get_points(&self, map: &HashMap<time::Date, usize>) -> Vec<(usize, f64)> {
-        self.blocs
-            .iter()
-            .flat_map(|(date, duration)| {
-                map.get(date)
-                    .map(|x| (*x, duration.as_secs_f64() * (1.0 / 3600.0)))
-            })
-            .collect()
-    }
-}
-
-#[derive(Debug, Default, PartialEq, Serialize, Deserialize)]
-pub struct Blocs(HashMap<SyrDate, Duration>);
-
-impl std::ops::Deref for Blocs {
-    type Target = HashMap<SyrDate, Duration>;
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
-impl std::ops::DerefMut for Blocs {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.0
-    }
-}
-
-impl std::fmt::Display for Blocs {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "[{}]",
-            self.iter()
-                .sorted_by(|(a, _), (b, _)| { a.cmp(b) })
-                .enumerate()
-                .fold(String::new(), |acc, (idx, (date, duration))| {
-                    if self.len() != idx + 1 {
-                        acc + &format!(
-                            "{:0>2}/{:0>2}/{:0>4}: ",
-                            date.day(),
-                            date.month() as u8,
-                            date.year()
-                        ) + &duration_as_pretty_string(duration)
-                            + ", "
-                    } else {
-                        acc + &format!(
-                            "{:0>2}/{:0>2}/{:0>4}: ",
-                            date.day(),
-                            date.month() as u8,
-                            date.year()
-                        ) + &duration_as_pretty_string(duration)
-                    }
-                })
-        )
-    }
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct SyrDate(time::Date);
-
-impl SyrDate {
-    pub fn new(date: time::Date) -> Self {
-        Self(date)
-    }
-}
-
-impl From<time::Date> for SyrDate {
-    fn from(value: time::Date) -> Self {
-        Self::new(value)
-    }
-}
-
-impl Serialize for SyrDate {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        format!(
-            "{:0>2}/{:0>2}/{:0>4}",
-            self.day(),
-            self.month() as u8,
-            self.year(),
-        )
-        .serialize(serializer)
-    }
-}
-
-impl<'a> Deserialize<'a> for SyrDate {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'a>,
-    {
-        deserializer.deserialize_any(SyrDateVisitor)
-    }
-}
-
-impl std::ops::Deref for SyrDate {
-    type Target = time::Date;
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
-impl std::ops::DerefMut for SyrDate {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.0
-    }
-}
-
-struct SyrDateVisitor;
-
-impl<'a> Visitor<'a> for SyrDateVisitor {
-    type Value = SyrDate;
-
-    fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
-        formatter.write_str("a valid string : dd/mm/yyyy")
-    }
-
-    fn visit_str<E>(self, v: &str) -> Result<Self::Value, E>
-    where
-        E: serde::de::Error,
-    {
-        parse_date(v)
-            .map(SyrDate::new)
-            .ok_or(E::custom("invalid date, must be dd/mmy/yyyy"))
-    }
-
-    fn visit_string<E>(self, v: String) -> Result<Self::Value, E>
-    where
-        E: serde::de::Error,
-    {
-        parse_date(&v)
-            .map(SyrDate::new)
-            .ok_or(E::custom("invalid date, must be dd/mmy/yyyy"))
-    }
-}
-
-#[cfg(test)]
-mod test {
-    use super::{Blocs, Entries, Entry, SyrDate};
-    use crate::utils::parse_date;
-
-    #[test]
-    fn get_score_1() {
-        let search_key = "TEST";
-        let string = "TESTING";
-
-        assert_eq!(Entry::get_score(search_key, string), 1.0)
-    }
-    #[test]
-    fn get_score_2() {
-        let search_key = "TESTA";
-        let string = "TESTING";
-
-        assert_eq!(Entry::get_score(search_key, string), 0.8)
-    }
-    #[test]
-    fn search_1() {
-        let search_key = "TEST";
-        let threshold: f64 = 0.55;
-        let mut entries = Entries::default();
-        entries.push(Entry::new(
-            vec!["TESA".to_string(), "ABC".to_string()],
-            Blocs::default(),
-        ));
-        entries.push(Entry::new(
-            vec!["TEAB".to_string(), "ABST".to_string()],
-            Blocs::default(),
-        ));
-
-        assert_eq!(
-            entries.search(search_key, threshold)[0].names[0].as_str(),
-            "TESA"
-        )
-    }
-    #[test]
-    fn search_2() {
-        let search_key = "TEST";
-        let threshold: f64 = 0.50;
-        let mut entries = Entries::default();
-        entries.push(Entry::new(
-            vec!["TESA".to_string(), "ABC".to_string()],
-            Blocs::default(),
-        ));
-        entries.push(Entry::new(
-            vec!["TEAB".to_string(), "ABST".to_string()],
-            Blocs::default(),
-        ));
-
-        assert_eq!(
-            entries.search(search_key, threshold)[1].names[0].as_str(),
-            "TEAB"
-        )
-    }
-    #[test]
-    fn search_3() {
-        let search_key = "TEST";
-        let threshold: f64 = 0.750001;
-        let mut entries = Entries::default();
-        entries.push(Entry::new(
-            vec!["TESA".to_string(), "ABC".to_string()],
-            Blocs::default(),
-        ));
-        entries.push(Entry::new(
-            vec!["TEAB".to_string(), "ABST".to_string()],
-            Blocs::default(),
-        ));
-
-        assert_eq!(entries.search(search_key, threshold).len(), 0)
-    }
-    #[test]
-    fn syrdate_serialize() {
-        let syrdate = SyrDate::new(parse_date("01/12/2023").unwrap());
-        assert_eq!(serde_json::to_string(&syrdate).unwrap(), "\"01/12/2023\"")
-    }
-    #[test]
-    fn syrdate_deserialize() {
-        let syrdate = SyrDate::new(parse_date("01/12/2023").unwrap());
-        let string_to_deserialize = "\"01/12/2023\"";
-
-        assert_eq!(
-            serde_json::from_str::<SyrDate>(string_to_deserialize).unwrap(),
-            syrdate
-        )
+    pub fn prune(&mut self, cutoff_date: &SyrDate) -> anyhow::Result<usize> {
+        let num = self.blocs.prune(cutoff_date);
+        self.save()?;
+        Ok(num)
     }
 }

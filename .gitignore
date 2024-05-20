@@ -1,6 +1,3 @@
 Cargo.lock
 /target
-/backups
-syracuse.json
-syracuse.config
-*.png
+/old_src

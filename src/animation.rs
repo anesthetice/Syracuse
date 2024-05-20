@@ -1,43 +1,39 @@
+use std::io::{self, Write};
 use crossterm::style::Stylize;
-use std::io::Write;
 
 use crate::warn;
 
-pub struct SimpleAnimation;
+pub type AnimationBuilder = Vec<(String, String)>;
 
-impl Animation for SimpleAnimation {
-    const FRAMES: usize = 8;
-    fn play<T>(stdout: &mut std::io::Stdout, frame: &mut usize, focus: &T)
-    where
-        T: std::fmt::Display,
-    {
-        if *frame >= Self::FRAMES {
-            *frame = 0;
-        }
-        let frame_to_draw = match *frame {
-            0 => format!("\r|  {}  |      ", focus),
-            1 => format!("\r|  {}  |      ", focus),
-            2 => format!("\r/  {}  /      ", focus),
-            3 => format!("\r/  {}  /      ", focus),
-            4 => format!("\r-  {}  -      ", focus),
-            5 => format!("\r-  {}  -      ", focus),
-            6 => format!("\r\\  {}  \\      ", focus),
-            7 => format!("\r\\  {}  \\      ", focus),
-            _ => unreachable!(),
-        };
-        let _ = stdout
-            .write_all(frame_to_draw.as_bytes())
-            .map_err(|err| warn!("animation issue\n{err}"));
-        let _ = stdout
-            .flush()
-            .map_err(|err| warn!("failed to flush to stdout\n{err}"));
-        *frame += 1;
-    }
+#[derive(Debug)]
+pub struct Animation {
+    index: usize,
+    frames: Vec<(String, String)>,
 }
 
-pub trait Animation {
-    const FRAMES: usize;
-    fn play<T>(stdout: &mut std::io::Stdout, frame: &mut usize, focus: &T)
-    where
-        T: std::fmt::Display;
+impl Animation {
+    pub fn construct(builder: AnimationBuilder, max_focus_len: usize, min_focus_len: usize) -> Self {
+        let max_frame_len = builder.iter().map(|(l, r)| l.len() + r.len()).max().unwrap_or(0_usize) + max_focus_len;
+
+        Self {
+            index: 0,
+            frames: builder.into_iter()
+                    .map(|(l, r)| {
+                        let num_repeats = max_frame_len - min_focus_len - l.len() - r.len();
+                        ("\r".to_string() + l.as_str(), r + " ".repeat(num_repeats).as_str())
+                    })
+                    .collect()
+        }
+    }
+    pub fn step(&mut self, stdout: &mut io::Stdout, focus: &str) {
+        if let Some((l, r)) = self.frames.get(self.index) {
+            let _ = stdout.write_all(
+                &[l.as_bytes(), focus.as_bytes(), r.as_bytes()].concat()
+            ).map_err(|err| {warn!("failed to write animation to stdout, {}", err);});
+            let _ = stdout.flush().map_err(|err| {warn!("failed to flush stdout, {}", err);});
+            if self.index < self.frames.len()-1 {
+                self.index += 1
+            } else {self.index = 0}
+        }
+    }
 }

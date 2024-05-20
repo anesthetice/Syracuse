@@ -1,68 +1,153 @@
-use crossterm::style::Stylize;
 use serde::{Deserialize, Serialize};
-use std::io::{Read, Write};
+use std::{io::{Read, Write}, sync::OnceLock};
+use crossterm::style::Stylize;
 
-use crate::{data::internal::SyrDate, warn};
+use crate::{animation::AnimationBuilder, data::graph::interpolation::InterpolationMethod, warn};
 
-#[derive(Clone, Serialize, Deserialize)]
+pub static CONFIG: OnceLock<Config> = OnceLock::new(); 
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Config {
-    pub search_threshold: f64,
+    // should info statements be printed
+    pub debug: bool,
+    // what set of characters separate the names of an entry stored as a file
+    pub entry_file_name_separtor: String,
+    // how often should progress be automatically saved in seconds
+    pub autosave_period: u16,
+    // local utc offset to get accurate dates [HH, MM, SS]
+    // e.g. western europe : [1,0,0] or [2,0,0] generally depending on daylight saving time
+    // you will have to manually change the config to account for changes in your timezone
     pub local_offset: [i8; 3],
-    pub backup_expiration_time: u64,
-    pub save_period: f64,
-    pub graph_specific_end_date: Option<SyrDate>,
-    pub graph_num_of_days_back: u16,
+    // default backup path
+    pub backup_path: String,
+
+    // threshold for results to be considered
+    pub search_threshold: f64,
+    // smith-waterman and needlman-wunsch algorithm weight
+    pub sw_nw_ratio: f64,
+    // used for sw and nw algorithms
+    pub match_score: i16,
+    // used for sw and nw algorithms
+    pub mismatch_penalty: i16,
+    // used for sw and nw algorithms
+    pub gap_penalty: i16,
+
+    // approximately how long a frame will be displayed in milliseconds before being refreshed
+    pub frame_period: u64,
+    // don't ask me why this should be in a config file
+    pub animation: AnimationBuilder,
+    
+    // empty string means where directory from which syracuse was executed
+    pub graph_output_dir: String,
+    // Linear or Makima interpolation, note that Makima might overshoot
+    pub graph_interpolation_method: InterpolationMethod,
+    // the number of points between a date and the next one that will be interpolated when graphing the sum of entries
+    pub graph_nb_interpolated_points: usize,
+    // marker size for entries
+    pub graph_marker_size: u32,
+    // graph background color
+    pub graph_background_rgb: (u8, u8, u8),
+    // graph foreground color
+    pub graph_foreground_rgb: (u8, u8, u8),
+    // graph bold grid color
+    pub graph_coarse_grid_rgb: (u8, u8, u8),
+    // graph fine grid color
+    pub graph_fine_grid_rgb: (u8, u8, u8),
+    // graph sum line color
+    pub graph_sum_line_rgb: (u8, u8, u8),
+    // the colors used for entry markers
+    pub graph_marker_rgb: Vec<(u8, u8, u8)>
 }
 
 impl Default for Config {
     fn default() -> Self {
         Self {
-            search_threshold: 0.8,
+            debug: false,
+            entry_file_name_separtor: "-·-".to_string(),
+            autosave_period: 30,
             local_offset: [0, 0, 0],
-            backup_expiration_time: 172800,
-            save_period: 15.0,
-            graph_specific_end_date: None,
-            graph_num_of_days_back: 13,
+            backup_path: "".to_string(),
+            search_threshold: 0.0,
+            sw_nw_ratio: 0.6,
+            match_score: 2,
+            mismatch_penalty: -1,
+            gap_penalty: -1,
+            frame_period: 150,
+            animation: vec![
+                ("|  ".to_string(), "  |".to_string()),
+                ("/  ".to_string(), "  /".to_string()),
+                ("-  ".to_string(), "  -".to_string()),
+                ("\\  ".to_string(), "  \\".to_string()),
+            ],
+            graph_output_dir: "".to_string(),
+            graph_interpolation_method: InterpolationMethod::Linear,
+            graph_nb_interpolated_points: 1500,
+            graph_marker_size: 6,
+            graph_background_rgb: (30, 30, 46),
+            graph_foreground_rgb: (205, 214, 244),
+            graph_coarse_grid_rgb: (84, 87, 108),
+            graph_fine_grid_rgb: (49, 50, 68),
+            graph_sum_line_rgb: (205, 214, 244),
+            graph_marker_rgb: vec![
+                // amaranth pink
+                (243, 167, 186),
+                // cocktail red
+                (253, 109, 114),
+                // deep saffron
+                (255, 150, 58),
+                // corn
+                (250, 234, 93),
+                // mountain lake green
+                (117, 185, 150),
+                // ceulean
+                (0, 143, 190),
+            ]
         }
     }
 }
 
 impl Config {
-    pub fn new() -> Self {
-        match Self::load() {
+    pub fn get() -> &'static Self {
+        CONFIG.get().unwrap()
+    }
+    pub fn load(filepath: &std::path::Path) -> Self {
+        match Self::from_file(filepath) {
             Ok(config) => config,
             Err(error) => {
-                warn!("failed to load configuration\n{}", error);
+                warn!("failed to load configuration from file, caused by : {}", error);
                 let config = Self::default();
-                if let Err(error) = config.save() {
-                    warn!("failed to save generated config\n{}", error);
+                let Ok(downcast_error) = error.downcast::<std::io::Error>() else {
+                    return config
+                };
+                if downcast_error.kind() == std::io::ErrorKind::NotFound {
+                    match config.to_file(filepath) {
+                        Ok(()) => warn!("created default configuration file, at : {}", filepath.display()),
+                        Err(error) => warn!("failed to create default configuration file, at : {}, caused by : {}", filepath.display(), error)
+                    }
                 }
                 config
             }
         }
     }
 
-    fn save(&self) -> anyhow::Result<()> {
-        let serialized_data: Vec<u8> = serde_json::to_vec_pretty(&self)?;
-
-        std::fs::OpenOptions::new()
-            .create(true)
-            .write(true)
-            .truncate(true)
-            .open("syracuse.config")?
-            .write_all(&serialized_data)?;
-
-        Ok(())
-    }
-
-    fn load() -> anyhow::Result<Self> {
-        let mut buffer: Vec<u8> = Vec::with_capacity(1024);
+    fn from_file(filepath: &std::path::Path) -> anyhow::Result<Self> {
+        let mut buffer: Vec<u8> = Vec::new();
         std::fs::OpenOptions::new()
             .create(false)
             .read(true)
-            .open("syracuse.config")?
+            .open(filepath)?
             .read_to_end(&mut buffer)?;
-
         Ok(serde_json::from_slice(&buffer)?)
+    }
+
+    fn to_file(&self, filepath: &std::path::Path) -> anyhow::Result<()> {
+        let mut file = std::fs::OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(filepath)?;
+
+        file.write_all(&serde_json::to_vec_pretty(&self)?)?;
+        file.flush()?;
+        Ok(())
     }
 }
