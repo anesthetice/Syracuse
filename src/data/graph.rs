@@ -44,7 +44,7 @@ pub fn graph(entries: Entries, start_date: SyrDate, end_date: SyrDate) -> anyhow
     let dates = SyrDate::expand_from_bounds(start_date, end_date);
 
     if dates.len() < 3 {
-        Err(crate::error::Error{}).context("failed to generate graph, three day span minimum required")?
+        Err(crate::error::Error{}).context("at minimum, a span of three days is required to build a graph")?
     }
 
     let mut superpoints: Vec<(String, Vec<(f64, f64)>)> = entries.iter().map(|entry| (entry.name.clone(), entry.get_points(&dates))).collect();

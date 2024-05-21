@@ -47,7 +47,7 @@ fn main() -> anyhow::Result<()> {
             }
 
             Err(err) => {
-                warn!("failed to create UtcOffset with the provided local time offset\n{err}");
+                warn!("failed to create UtcOffset with the provided local time offset: '{err}'");
                 (base.date().into(), base)
             }
         }

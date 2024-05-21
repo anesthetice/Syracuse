@@ -4,7 +4,7 @@ use itertools::Itertools;
 use crate::{algorithms, info, utils::{enter_clean_input_mode, exit_clean_input_mode}, warn};
 
 use super::syrtime::{Blocs, SyrDate};
-use std::{io::{Read, Write}, path::Path};
+use std::{io::{Read, Write}, path::{Path, PathBuf}};
 
 
 pub struct Entries(Vec<Entry>);
@@ -82,7 +82,7 @@ impl Entries {
 
         println!(
             "{} {}",
-            "――>".green(),
+            "――>".cyan(),
             match response.as_ref() {
                 Some(entry) => &entry.name,
                 None => "None"
@@ -96,7 +96,7 @@ impl Entries {
         enter_clean_input_mode();
         loop {
             if !event::poll(std::time::Duration::from_millis(200)).unwrap_or_else(|err| {
-                warn!("event polling issue, {}", err);
+                warn!("event polling issue: '{}'", err);
                 false
             })
             {
@@ -106,7 +106,7 @@ impl Entries {
                 Ok(event::Event::Key(key)) => key,
                 Ok(_) => continue,
                 Err(error) => {
-                    warn!("event read issue, {}", error);
+                    warn!("event read issue: '{}'", error);
                     continue
                 },
             };
@@ -138,7 +138,7 @@ impl Entries {
         enter_clean_input_mode();
         loop {
             if !event::poll(std::time::Duration::from_millis(200)).unwrap_or_else(|err| {
-                warn!("event polling issue, {}", err);
+                warn!("event polling issue: '{}'", err);
                 false
             })
             {
@@ -148,7 +148,7 @@ impl Entries {
                 Ok(event::Event::Key(key)) => key,
                 Ok(_) => continue,
                 Err(error) => {
-                    warn!("event read issue, {}", error);
+                    warn!("event read issue: '{}'", error);
                     continue
                 },
             };
@@ -188,9 +188,7 @@ impl Entries {
     pub fn backup(&self, path: std::path::PathBuf) {
         for entry in self.iter() {
             if let Err(error) = entry.save_to_file(&path.join(entry.get_filestem() + ".json")) {
-                warn!("failed to back up an entry, due to : {error}")
-            } else {
-                info!("{} backed up", &entry.name)
+                warn!("failed to back up an entry, caused by: '{error}'")
             }
         }
     }
@@ -233,8 +231,8 @@ impl Entry {
 
     fn from_file(filepath: &Path) -> anyhow::Result<Self> {
         let separator: &str = crate::config::Config::get().entry_file_name_separtor.as_str();
-        let file_name = filepath.file_stem().with_context(|| format!("failed to obtain filestem of : {}", filepath.display()))?
-            .to_str().with_context(|| format!("filename OsStr cannot be converted to valid utf-8 : {}", filepath.display()))?;
+        let file_name = filepath.file_stem().with_context(|| format!("failed to obtain filestem of: '{}'", filepath.display()))?
+            .to_str().with_context(|| format!("filename OsStr cannot be converted to valid utf-8: '{}'", filepath.display()))?;
         let (name, aliases) : (String, Vec<String>) = {
             if let Some((name, aliases)) = file_name.split_once(separator) {
                 (name.to_string(), aliases.split(separator).map(|s| s.to_string()).collect())
@@ -290,11 +288,14 @@ impl Entry {
             .open(filepath)?
             .write_all(&data)?;
 
+        info!("saved '{}' to '{}'", self.name, filepath.parent().unwrap_or(PathBuf::new().as_path()).to_str().unwrap_or("?"));
         Ok(())
     }
 
     pub fn delete(self) -> anyhow::Result<()> {
-        Ok(std::fs::remove_file(self.get_filepath())?)
+        std::fs::remove_file(self.get_filepath())?;
+        info!("removed '{}'", self.name);
+        Ok(())
     }
 
     pub fn increase_bloc_duration(&mut self, date: &SyrDate, duration: u128) {

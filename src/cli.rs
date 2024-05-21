@@ -204,7 +204,7 @@ pub fn process_add_subcommand(arg_matches: &ArgMatches, entries: &Entries) -> an
     for name in names.iter() {
         if name.contains(separator_characters) {
             Err(error::Error{})
-                    .with_context(|| format!("failed to add new entry, the name and or aliases provided conflict with the separator characters '{}'", separator_characters))?
+                    .with_context(|| format!("failed to add new entry, the name and or aliases provided conflict with the separator characters: '{}'", separator_characters))?
         }
     }
 
@@ -212,13 +212,12 @@ pub fn process_add_subcommand(arg_matches: &ArgMatches, entries: &Entries) -> an
         for name in names.iter() {
             if !entry.check_new_entry_name_validity(name) {
                 Err(error::Error{})
-                    .with_context(|| format!("failed to add new entry, the name and or aliases provided conflict with an existing entry, {}", entry))?
+                    .with_context(|| format!("failed to add new entry, the name and or aliases provided conflict with an existing entry: '{}'", entry))?
             }
         }
     }
 
     Entry::new(names.remove(0), names).save()?;
-    info!("new entry added");
     Ok(PO::Terminate)       
 }
 
@@ -246,7 +245,6 @@ pub fn process_remove_subcommand(arg_matches: &ArgMatches, entries: &Entries) ->
         return Ok(PO::Terminate)
     };
     entry.delete()?;
-    info!("entry deleted");
     Ok(PO::Terminate)
 }
 
@@ -296,7 +294,7 @@ pub fn process_start_subcommand(arg_matches: &ArgMatches, entries: &Entries, tod
                     return Err(error);
                 }
                 else {
-                    warn!("failed to autosave progress, {}", error);
+                    warn!("failed to autosave progress: '{}'", error);
                 }
             }
             autosave_instant = instant;
@@ -332,14 +330,18 @@ pub fn process_update_subcommand(arg_matches: &ArgMatches, entries: &Entries, to
     let minute_diff: f64 = *arg_matches.get_one::<f64>("minute").unwrap_or(&0.0);
     let second_diff: f64 = *arg_matches.get_one::<f64>("second").unwrap_or(&0.0);
     let total_diff: u128 = (hour_diff * 3_600_000_000_000_f64 + minute_diff * 60_000_000_000_f64 + second_diff * 1_000_000_000_f64) as u128;
-
+    
     if ["add", "plus", "incr", "increase"].iter().any(|s| *s == operation) {
+        let tmp = ns_to_pretty_string(entry.get_block_duration(&date));
         entry.increase_bloc_duration(&date, total_diff);
         entry.save()?;
+        println!("{}  :  {} {} {}", &date, &tmp, "――>".green(), ns_to_pretty_string(entry.get_block_duration(&date)))
     }
     else if ["sub", "rem", "remove", "minus", "decr", "decrease"].iter().any(|s| *s == operation) {
+        let tmp = ns_to_pretty_string(entry.get_block_duration(&date));
         entry.decrease_bloc_duration(&date, total_diff);
         entry.save()?;
+        println!("{}  :  {} {} {}", &date, &tmp, "――>".red(), ns_to_pretty_string(entry.get_block_duration(&date)))
     }
     else {
         warn!("unknown operation: '{}'", operation);
@@ -353,7 +355,7 @@ pub fn process_today_subcommand(arg_matches: &ArgMatches, entries: &Entries, tod
     };
 
     let sum: u128 = entries.iter().map(|entry| entry.get_block_duration(today)).sum();
-    println!("{} {}", "――>".green(), ns_to_pretty_string(sum).bold());
+    println!("{}", ns_to_pretty_string(sum).bold());
 
     Ok(PO::Terminate)
 }
@@ -379,13 +381,13 @@ pub fn process_backup_subcommand(arg_matches: &ArgMatches, entries: &Entries, to
 
     if let Err(error) = std::fs::create_dir(&path) {
         if error.kind() != std::io::ErrorKind::AlreadyExists {
-            warn!("failed to create the following directory : {:?}, caused by : {}", &path, error);
+            warn!("failed to create the following directory: '{:?}', caused by: '{}'", &path, error);
             return Ok(PO::Terminate)
         } else {
-            info!("directory already exists, highly unusual");
+            info!("directory already exists, this is not feasible");
         }
     }
-    println!("backing up to ――> {:?}", &path);
+    println!("backing up to: '{:?}'", &path);
 
     entries.backup(path);
     Ok(PO::Terminate)

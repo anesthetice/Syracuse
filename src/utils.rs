@@ -18,11 +18,11 @@ macro_rules! warn {
 }
 
 pub fn enter_clean_input_mode() {
-    let _ = enable_raw_mode().map_err(|err| warn!("failed to enable raw mode\n{err}"));
-    let _ = execute!(stdout(), cursor::Hide).map_err(|err| warn!("failed to hide cursor\n{err}"));
+    let _ = enable_raw_mode().map_err(|err| warn!("failed to enable raw mode: '{err}'"));
+    let _ = execute!(stdout(), cursor::Hide).map_err(|err| warn!("failed to hide cursor: '{err}'"));
 }
 
 pub fn exit_clean_input_mode() {
-    let _ = execute!(stdout(), cursor::Show).map_err(|err| warn!("failed to show cursor\n{err}"));
-    let _ = disable_raw_mode().map_err(|err| warn!("failed to disable raw mode\n{err}"));
+    let _ = execute!(stdout(), cursor::Show).map_err(|err| warn!("failed to show cursor: '{err}'"));
+    let _ = disable_raw_mode().map_err(|err| warn!("failed to disable raw mode: '{err}'"));
 }
