@@ -81,7 +81,7 @@ impl Entries {
         };
 
         println!(
-            "{} {}",
+            "{} {}\n",
             "――>".cyan(),
             match response.as_ref() {
                 Some(entry) => &entry.name,

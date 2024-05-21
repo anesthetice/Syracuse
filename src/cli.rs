@@ -271,7 +271,6 @@ pub fn process_start_subcommand(arg_matches: &ArgMatches, entries: &Entries, tod
     let mut autosave_instant = start;
     let autosave_perdiod = Duration::from_secs(config::Config::get().autosave_period as u64);
     let mut stdout = std::io::stdout();
-    println!();
     enter_clean_input_mode();
     // end of initialization
     loop {
