@@ -32,7 +32,7 @@ fn main() -> anyhow::Result<()> {
     let datetime = {
         let lo = config::Config::get().local_offset;
         match time::UtcOffset::from_hms(lo[0], lo[1], lo[2]) {
-            Ok(offset) => time::OffsetDateTime::now_utc().replace_offset(offset),
+            Ok(offset) => time::OffsetDateTime::now_utc().to_offset(offset),
             Err(err) => {
                 warn!("failed to create UtcOffset with the provided local time offset: '{err}'");
                 time::OffsetDateTime::now_utc()
@@ -41,7 +41,7 @@ fn main() -> anyhow::Result<()> {
     };
     let date = datetime.date().into();
     let time = datetime.time();
-    
+
     let entries = Entries::load()?;
     // end of initialization
 
