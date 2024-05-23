@@ -229,6 +229,10 @@ impl Entry {
         Self { name, aliases, blocs: Blocs::default() }
     }
 
+    pub fn get_name(&self) -> &str {
+        &self.name
+    }
+
     fn from_file(filepath: &Path) -> anyhow::Result<Self> {
         let separator: &str = crate::config::Config::get().entry_file_name_separtor.as_str();
         let file_name = filepath.file_stem().with_context(|| format!("failed to obtain filestem of: '{}'", filepath.display()))?

@@ -20,6 +20,10 @@ pub struct Config {
     pub local_offset: [i8; 3],
     // default backup path
     pub backup_path: String,
+    // when starting a stopwatch for a given entry, should the initial time be displayed?
+    // realistically this could also just be an argument option in the CLI, but I personally want
+    // it to be always on, so there we go..
+    pub stopwatch_explicit: bool,
 
     // threshold for results to be considered
     pub search_threshold: f64,
@@ -67,6 +71,7 @@ impl Default for Config {
             autosave_period: 30,
             local_offset: [0, 0, 0],
             backup_path: "".to_string(),
+            stopwatch_explicit: false,
             search_threshold: 0.0,
             sw_nw_ratio: 0.5,
             match_score: 2,

@@ -3,7 +3,7 @@ use std::{path::PathBuf, time::{Duration, Instant}};
 use anyhow::Context;
 use clap::{command, value_parser, Arg, ArgAction, ArgMatches, Command};
 use crossterm::{event, style::Stylize};
-use time::OffsetDateTime;
+use time::{OffsetDateTime, Time};
 
 use crate::{
     animation,
@@ -70,17 +70,17 @@ pub fn cli() -> clap::Command {
         .about("Manually update the time of an entry")
         .long_about("This subcommand is used to manually increase or decrease the time associated with an entry on a given day")
         .arg(
-            Arg::new("operation")
+            Arg::new("entry")
                 .index(1)
                 .required(true)
-                .help("add or sub")
+                .help("entry to update")
                 .action(ArgAction::Set),
         )
         .arg(
-            Arg::new("entry")
+            Arg::new("operation")
                 .index(2)
                 .required(true)
-                .help("entry to update")
+                .help("add or sub")
                 .action(ArgAction::Set),
         )
         .arg(
@@ -122,7 +122,19 @@ pub fn cli() -> clap::Command {
     
     let today_subcommand = Command::new("today")
         .about("Display the time tracked today")
-        .long_about("This subcommand is used to display the sum of the time tracked by every single entry for today");
+        .long_about("This subcommand is used to display the sum of the time tracked by every single entry for today")
+        .arg(
+            Arg::new("explicit")
+                .help("breaks down each entry's contribution to the total time")
+                .required(false)
+                .short('e')
+                .short_alias('a')
+                .short_alias('f')
+                .long("explicit")
+                .alias("all")
+                .alias("full")
+                .action(ArgAction::SetTrue)
+        );
 
     let backup_subcommand = Command::new("backup")
         .about("Backup entries")
@@ -248,7 +260,7 @@ pub fn process_remove_subcommand(arg_matches: &ArgMatches, entries: &Entries) ->
     Ok(PO::Terminate)
 }
 
-pub fn process_start_subcommand(arg_matches: &ArgMatches, entries: &Entries, today: &SyrDate) -> anyhow::Result<ProcessOutput> {
+pub fn process_start_subcommand(arg_matches: &ArgMatches, entries: &Entries, today: &SyrDate, time: &Time) -> anyhow::Result<ProcessOutput> {
     let Some(arg_matches) = arg_matches.subcommand_matches("start") else {
         return Ok(PO::Continue(None))
     };
@@ -272,6 +284,10 @@ pub fn process_start_subcommand(arg_matches: &ArgMatches, entries: &Entries, tod
     let autosave_perdiod = Duration::from_secs(config::Config::get().autosave_period as u64);
     let mut stdout = std::io::stdout();
     enter_clean_input_mode();
+    if config::Config::get().stopwatch_explicit {
+        let (h, m, s) = time.as_hms();
+        println!("stopwatch started at: {:0>2}:{:0>2}:{:0>2}\n", h, m, s)
+    }
     // end of initialization
     loop {
         animation.step(
@@ -349,13 +365,31 @@ pub fn process_update_subcommand(arg_matches: &ArgMatches, entries: &Entries, to
 }
 
 pub fn process_today_subcommand(arg_matches: &ArgMatches, entries: &Entries, today: &SyrDate) -> anyhow::Result<ProcessOutput> {
-    let Some(_) = arg_matches.subcommand_matches("today") else {
+    let Some(arg_matches) = arg_matches.subcommand_matches("today") else {
         return Ok(PO::Continue(None))
     };
 
-    let sum: u128 = entries.iter().map(|entry| entry.get_block_duration(today)).sum();
-    println!("{}", ns_to_pretty_string(sum).bold());
+    let sum = {
+        if arg_matches.get_flag("explicit") {
+            entries.iter().map(|entry| {
+                let duration = entry.get_block_duration(today);
+                // 15 seems reasonable, I could check the length of every entry's name and get a better estimation
+                // but even that would not be perfect, I would have to count the valid grapheme clusters which adds a lot of complexity
+                // to what I itend as simple padding
+                if duration != 0 {println!("{:<15} :   {}", entry.get_name(), ns_to_pretty_string(duration))}
+                duration
+            }).sum()
+        } else {
+            entries.iter().map(|entry| entry.get_block_duration(today)).sum()
+        }
+    };
 
+    if arg_matches.get_flag("explicit") {
+        println!("\n{} {}", "――>".green(), ns_to_pretty_string(sum).bold());
+    } else {
+        println!("{}", ns_to_pretty_string(sum).bold());
+    }
+    
     Ok(PO::Terminate)
 }
 

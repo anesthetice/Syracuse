@@ -14,9 +14,7 @@ use directories::ProjectDirs;
 use cli::{
     process_add_subcommand, process_backup_subcommand, process_graph_subcommand, process_list_subcommand, process_prune_subcommand, process_remove_subcommand, process_start_subcommand, process_today_subcommand, process_update_subcommand, ProcessOutput as PO
 };
-use data::{internal::Entries, syrtime::SyrDate};
-use time::OffsetDateTime;
-
+use data::internal::Entries;
 fn main() -> anyhow::Result<()> {
     // start of initialization
     let dirs = ProjectDirs::from("", "", "syracuse").context("failed to get project directories")?;
@@ -31,27 +29,18 @@ fn main() -> anyhow::Result<()> {
     config::CONFIG.set(config::Config::load(&dirs.config_dir().join("syracuse.conf"))).unwrap();
     dirs::DIRS.set(dirs).unwrap();
 
-    let (date, datetime): (SyrDate, OffsetDateTime) = {
-        let config = config::Config::get();
-        let base = time::OffsetDateTime::now_utc();
-        match time::UtcOffset::from_hms(
-            config.local_offset[0],
-            config.local_offset[1],
-            config.local_offset[2],
-        ) {
-            Ok(offset) => {
-                (
-                    base.replace_offset(offset).date().into(),
-                    base
-                )
-            }
-
+    let datetime = {
+        let lo = config::Config::get().local_offset;
+        match time::UtcOffset::from_hms(lo[0], lo[1], lo[2]) {
+            Ok(offset) => time::OffsetDateTime::now_utc().replace_offset(offset),
             Err(err) => {
                 warn!("failed to create UtcOffset with the provided local time offset: '{err}'");
-                (base.date().into(), base)
-            }
+                time::OffsetDateTime::now_utc()
+            },
         }
     };
+    let date = datetime.date().into();
+    let time = datetime.time();
     
     let entries = Entries::load()?;
     // end of initialization
@@ -75,7 +64,7 @@ fn main() -> anyhow::Result<()> {
         PO::Terminate => return Ok(()),
     }
 
-    match process_start_subcommand(&arg_matches, &entries, &date)? {
+    match process_start_subcommand(&arg_matches, &entries, &date, &time)? {
         PO::Continue(_) => (),
         PO::Terminate => return Ok(()),
     }
