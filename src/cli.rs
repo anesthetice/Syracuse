@@ -134,6 +134,22 @@ pub fn cli() -> clap::Command {
                 .alias("all")
                 .alias("full")
                 .action(ArgAction::SetTrue)
+        )
+        .arg(
+            Arg::new("yesterday")
+                .required(false)
+                .short('y')
+                .long("yesterday")
+                .action(ArgAction::SetTrue)
+        )
+        .arg(
+            Arg::new("previous")
+                .required(false)
+                .short('p')
+                .long("previous")
+                .alias("prev")
+                .value_parser(value_parser!(usize))
+                .action(ArgAction::Set)
         );
 
     let backup_subcommand = Command::new("backup")
@@ -369,10 +385,23 @@ pub fn process_today_subcommand(arg_matches: &ArgMatches, entries: &Entries, tod
         return Ok(PO::Continue(None))
     };
 
+    let date: SyrDate = {
+        let mut date = **today;
+        if arg_matches.get_flag("yesterday") {
+            date = date.previous_day().ok_or(error::Error{}).context("failed to get yesterday's date, this should not occur")?;
+        }
+        else if let Some(val) = arg_matches.get_one::<usize>("previous") {
+            for _ in 0..*val {
+                date = date.previous_day().ok_or(error::Error{}).context("failed to get the previous date, this should not occur")?
+            }
+        }
+        date.into()
+    };
+
     let sum = {
         if arg_matches.get_flag("explicit") {
             entries.iter().map(|entry| {
-                let duration = entry.get_block_duration(today);
+                let duration = entry.get_block_duration(&date);
                 // 15 seems reasonable, I could check the length of every entry's name and get a better estimation
                 // but even that would not be perfect, I would have to count the valid grapheme clusters which adds a lot of complexity
                 // to what I itend as simple padding
@@ -380,7 +409,7 @@ pub fn process_today_subcommand(arg_matches: &ArgMatches, entries: &Entries, tod
                 duration
             }).sum()
         } else {
-            entries.iter().map(|entry| entry.get_block_duration(today)).sum()
+            entries.iter().map(|entry| entry.get_block_duration(&date)).sum()
         }
     };
 
