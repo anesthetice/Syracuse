@@ -368,7 +368,7 @@ pub fn process_update_subcommand(arg_matches: &ArgMatches, entries: &Entries, to
         entry.save()?;
         println!("{}  :  {} {} {}", &date, &tmp, "――>".green(), ns_to_pretty_string(entry.get_block_duration(&date)))
     }
-    else if ["sub", "rem", "remove", "minus", "decr", "decrease"].iter().any(|s| *s == operation) {
+    else if ["sub", "rm", "rem", "remove", "minus", "decr", "decrease"].iter().any(|s| *s == operation) {
         let tmp = ns_to_pretty_string(entry.get_block_duration(&date));
         entry.decrease_bloc_duration(&date, total_diff);
         entry.save()?;
@@ -449,7 +449,7 @@ pub fn process_backup_subcommand(arg_matches: &ArgMatches, entries: &Entries, to
             info!("directory already exists, this is not feasible");
         }
     }
-    println!("backing up to: '{:?}'", &path);
+    println!("backing up to: '{}'", &path.display());
 
     entries.backup(path);
     Ok(PO::Terminate)

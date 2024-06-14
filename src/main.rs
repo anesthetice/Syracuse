@@ -14,7 +14,7 @@ use directories::ProjectDirs;
 use cli::{
     process_add_subcommand, process_backup_subcommand, process_graph_subcommand, process_list_subcommand, process_prune_subcommand, process_remove_subcommand, process_start_subcommand, process_today_subcommand, process_update_subcommand, ProcessOutput as PO
 };
-use data::internal::Entries;
+use data::{internal::Entries, syrtime::SyrDate};
 fn main() -> anyhow::Result<()> {
     // start of initialization
     let dirs = ProjectDirs::from("", "", "syracuse").context("failed to get project directories")?;
@@ -39,8 +39,15 @@ fn main() -> anyhow::Result<()> {
             },
         }
     };
-    let date = datetime.date().into();
     let time = datetime.time();
+    let date: SyrDate = {
+        if time.hour() < config::Config::get().night_owl_hour_extension {
+            datetime.date().previous_day().unwrap_or(datetime.date()).into()
+        }
+        else {
+            datetime.date().into()
+        }
+    };
 
     let entries = Entries::load()?;
     // end of initialization

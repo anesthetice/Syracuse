@@ -24,6 +24,10 @@ pub struct Config {
     // realistically this could also just be an argument option in the CLI, but I personally want
     // it to be always on, so there we go..
     pub stopwatch_explicit: bool,
+    // by how many hours should the day be extended after midnight
+    // e.g. 2 -> timers started until 2 a.m. on a given day will count towards the previous day
+    // useful for night owls
+    pub night_owl_hour_extension: u8,
 
     // threshold for results to be considered
     pub search_threshold: f64,
@@ -72,6 +76,7 @@ impl Default for Config {
             local_offset: [0, 0, 0],
             backup_path: "".to_string(),
             stopwatch_explicit: false,
+            night_owl_hour_extension: 0,
             search_threshold: 0.0,
             sw_nw_ratio: 0.5,
             match_score: 2,
@@ -104,7 +109,7 @@ impl Default for Config {
                 (250, 234, 93),
                 // mountain lake green
                 (117, 185, 150),
-                // ceulean
+                // cerulean
                 (0, 143, 190),
             ]
         }
