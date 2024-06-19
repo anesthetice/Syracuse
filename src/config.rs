@@ -47,7 +47,7 @@ pub struct Config {
     
     // empty string means where directory from which syracuse was executed
     pub graph_output_dir: String,
-    // Linear or Makima interpolation, note that Makima might overshoot
+    // "Linear" or "Makima" interpolation are currently available, note that Makima overshoots
     pub graph_interpolation_method: InterpolationMethod,
     // the number of points between a date and the next one that will be interpolated when graphing the sum of entries
     pub graph_nb_interpolated_points: usize,
