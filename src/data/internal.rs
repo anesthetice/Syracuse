@@ -28,7 +28,16 @@ impl std::ops::DerefMut for Entries {
     }
 }
 
+pub enum IndexOptions {
+    All,
+    Indexable,
+    Unindexable,
+}
+
 impl Entries {
+    pub fn as_inner(&self) -> Vec<&Entry> {
+        self.iter().collect_vec()
+    }
     pub fn load() -> anyhow::Result<Self> {
         let entries = std::path::Path::read_dir(crate::dirs::Dirs::get().data_dir())?
             .flat_map(|res| {
@@ -51,8 +60,18 @@ impl Entries {
 
         Ok(entries)
     }
-    pub fn choose(&self, query: &str) -> Option<Entry> {
+    // if indexable_exclusive is false -> we assume unindexable_exclusive
+    pub fn choose(&self, query: &str, index_options: IndexOptions) -> Option<Entry> {
         let choices: Vec<&Entry> = self.iter()
+            // keeps only entries marked as indexable if indexable_exclusive is true
+            .filter(|entry| {
+                match index_options {
+                    IndexOptions::All => true,
+                    IndexOptions::Indexable => entry.indexable,
+                    IndexOptions::Unindexable => !entry.indexable,
+                }
+            })
+            // outputs (score, entry)
             .map(|entry| {
                 (entry.aliases
                     .iter()
@@ -65,11 +84,14 @@ impl Entries {
                     .fold(-1.0, |acc, x| {if x > acc {x} else {acc}}),
                 entry)
             })
+            // keeps entries with a high enough score
             .filter(|(score, entry)| {
                 info!("{:<15}:   {:.3}", entry.name, score);
                 *score >= crate::config::Config::get().search_threshold
             })
+            // sorts by the entry with the highest score
             .sorted_by(|(a, _), (b, _)| {b.partial_cmp(a).unwrap_or(std::cmp::Ordering::Equal)})
+            // keeps only the top 3
             .take(3)
             .map(|(_, entry)| {entry})
             .collect();
@@ -199,6 +221,7 @@ pub struct Entry {
     pub(super) name: String,
     pub(super) aliases: Vec<String>,
     pub(super) blocs: Blocs,
+    pub(super) indexable: bool,
 }
 
 impl std::fmt::Debug for Entry {
@@ -224,9 +247,18 @@ impl std::fmt::Display for Entry {
     }
 }
 
+impl PartialEq for Entry {
+    fn eq(&self, other: &Self) -> bool {
+        self.name == other.name
+    }
+    fn ne(&self, other: &Self) -> bool {
+        self.name != other.name
+    }
+}
+
 impl Entry {
     pub fn new(name: String, aliases: Vec<String>) -> Self {
-        Self { name, aliases, blocs: Blocs::default() }
+        Self { name, aliases, blocs: Blocs::default(), indexable: true }
     }
 
     pub fn get_name(&self) -> &str {
@@ -235,8 +267,15 @@ impl Entry {
 
     fn from_file(filepath: &Path) -> anyhow::Result<Self> {
         let separator: &str = crate::config::Config::get().entry_file_name_separtor.as_str();
-        let file_name = filepath.file_stem().with_context(|| format!("failed to obtain filestem of: '{}'", filepath.display()))?
+        let mut file_name = filepath.file_stem().with_context(|| format!("failed to obtain filestem of: '{}'", filepath.display()))?
             .to_str().with_context(|| format!("filename OsStr cannot be converted to valid utf-8: '{}'", filepath.display()))?;
+
+        let indexable = !file_name.ends_with(".noindex");
+        if !indexable {
+            // safe
+            file_name = &file_name[..(file_name.len()-8)];
+        }
+
         let (name, aliases) : (String, Vec<String>) = {
             if let Some((name, aliases)) = file_name.split_once(separator) {
                 (name.to_string(), aliases.split(separator).map(|s| s.to_string()).collect())
@@ -252,7 +291,7 @@ impl Entry {
             .open(filepath)?
             .read_to_end(&mut buffer)?;
 
-        Ok(Self { name, aliases, blocs: serde_json::from_slice(&buffer)? })   
+        Ok(Self { name, aliases, blocs: serde_json::from_slice(&buffer)?, indexable })   
     }
 
     pub fn get_filestem(&self) -> String {
@@ -266,7 +305,7 @@ impl Entry {
     fn get_filepath(&self) -> std::path::PathBuf {
         crate::dirs::Dirs::get()
             .data_dir()
-            .join(self.get_filestem() + ".json")
+            .join(self.get_filestem() + if self.indexable {".json"} else {".noindex.json"})
     }
 
     // true = valid, false = invalid
@@ -276,6 +315,13 @@ impl Entry {
 
     pub fn get_block_duration(&self, date: &SyrDate) -> u128 {
         *self.blocs.get(date).unwrap_or(&0)
+    }
+
+    pub fn get_block_duration_total_as_hours(&self) -> f64 {
+        self.blocs
+            .iter()
+            .flat_map(|(_, x)| if *x != 0 {Some(*x)} else {None})
+            .fold(0_f64, |acc, x| acc + x as f64 / 3_600_000_000_000.0_f64)
     }
 
     pub fn save(&self) -> anyhow::Result<()> {
@@ -328,5 +374,12 @@ impl Entry {
         let num = self.blocs.prune(cutoff_date);
         self.save()?;
         Ok(num)
+    }
+
+    pub fn inverse_indexability(&mut self) -> anyhow::Result<()> {
+        let old_filepath = self.get_filepath();
+        self.indexable = !self.indexable;
+        std::fs::rename(old_filepath, self.get_filepath())?;
+        Ok(())
     }
 }

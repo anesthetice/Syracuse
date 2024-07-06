@@ -12,7 +12,7 @@ use crossterm::style::Stylize;
 use directories::ProjectDirs;
 
 use cli::{
-    process_add_subcommand, process_backup_subcommand, process_graph_subcommand, process_list_subcommand, process_prune_subcommand, process_remove_subcommand, process_start_subcommand, process_today_subcommand, process_update_subcommand, ProcessOutput as PO
+    process_add_subcommand, process_backup_subcommand, process_graph_subcommand, process_list_subcommand, process_prune_subcommand, process_reindex_subcommand, process_remove_subcommand, process_start_subcommand, process_sum_subcommand, process_today_subcommand, process_unindex_subcommand, process_update_subcommand, ProcessOutput as PO
 };
 use data::{internal::Entries, syrtime::SyrDate};
 fn main() -> anyhow::Result<()> {
@@ -87,6 +87,21 @@ fn main() -> anyhow::Result<()> {
     }
 
     match process_backup_subcommand(&arg_matches, &entries, &datetime)? {
+        PO::Continue(_) => (),
+        PO::Terminate => return Ok(()),
+    }
+
+    match process_unindex_subcommand(&arg_matches, &entries)? {
+        PO::Continue(_) => (),
+        PO::Terminate => return Ok(()),
+    }
+
+    match process_reindex_subcommand(&arg_matches, &entries)? {
+        PO::Continue(_) => (),
+        PO::Terminate => return Ok(()),
+    }
+
+    match process_sum_subcommand(&arg_matches, &entries, &date)? {
         PO::Continue(_) => (),
         PO::Terminate => return Ok(()),
     }

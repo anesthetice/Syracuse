@@ -46,16 +46,19 @@ end
 Usage: syracuse [COMMAND]
 
 Commands:
-  add     Add a new entry to syracuse
-  list    List out all entries
-  remove  Remove a single entry
-  start   Start the daily stopwatch for an entry
-  update  Manually update the time of an entry
-  today   Display the time tracked today
-  prune   Removes old blocs from entries
-  backup  Backup entries
-  graph   Creates a graph
-  help    Print this message or the help of the given subcommand(s)
+  add      Add a new entry to syracuse
+  list     List out all entries
+  remove   Remove a single entry
+  start    Start the daily stopwatch for an entry
+  update   Manually update the time of an entry
+  today    Display the time tracked today
+  backup   Backup entries
+  unindex  Unindexes a specified entry
+  reindex  Reindexes a specified entry
+  sum      Sums up the time tracked by entries
+  prune    Keeps only the blocs younger than a certain date old
+  graph    Creates a graph
+  help     Print this message or the help of the given subcommand(s)
 
 Options:
   -h, --help     Print help

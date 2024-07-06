@@ -112,15 +112,18 @@ impl TryFrom<&str> for SyrDate {
     type Error = anyhow::Error;
     fn try_from(value: &str) -> Result<Self, Self::Error> 
     {
-        let input: Vec<&str> = value.split('/').collect();
+        let Some(split_char) = ['/', '.', '-', '_'].into_iter().filter(|char| value.contains(*char)).nth(0) else {
+            Err(crate::error::Error{}).context("failed to parse date, no separator character detected, (e.g. '/', '.', '-', '_')")?
+        };
+        let input: Vec<&str> = value.split(split_char).collect();
         if input.len() != 3 {
-            Err(crate::error::Error{}).context("failed to parse date, invalid date format, expected dd/mm/yyyy")?;
+            Err(crate::error::Error{}).context("failed to parse date, invalid date format, expected dd/mm/yyyy, or with '/' alternatives such as '.'")?;
         }
         Ok(Self::from(time::Date::from_calendar_date(
             input[2].parse::<i32>().context("failed to parse date, invalid year integer")?,
             time::Month::try_from(input[1].parse::<u8>().context("failed to parse date, invalid month integer, expected 01-12")?).context("failed to parse date, invalid month integer, expected 01-12")?,
             input[0].parse::<u8>().context("failed to parse date, invalid day integer, expected 01-31")?,
-        ).context("failed to parse date, invalid date format, expected dd/mm/yyyy")?))
+        ).context("failed to parse date, invalid date format, expected dd/mm/yyyy, or with '/' alternatives such as '.'")?))
     }
 }
 

@@ -231,6 +231,8 @@ pub mod interpolation {
         Makima,
     }
 
+    // plotters.rs has a lineseries options but I dislike it as the width is not consistent depending on the slope
+    // this method gives us a more consistent line width
     pub(super) fn linear(points: Vec<(f64, f64)>) -> Vec<(f64, f64)> {
         let nb_points = Config::get().graph_nb_interpolated_points;
         points

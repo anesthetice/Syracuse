@@ -1,15 +1,17 @@
 use std::{path::PathBuf, time::{Duration, Instant}};
 
 use anyhow::Context;
-use clap::{command, value_parser, Arg, ArgAction, ArgMatches, Command};
+use clap::{command, value_parser, Arg, ArgAction, ArgGroup, ArgMatches, Command};
 use crossterm::{event, style::Stylize};
 use time::{OffsetDateTime, Time};
 
 use crate::{
     animation,
     config,
-    data::{graph, internal::{Entries, Entry}, syrtime::{ns_to_pretty_string, SyrDate}},
-    error, info, utils::{enter_clean_input_mode, exit_clean_input_mode}, warn,
+    data::{graph, internal::{Entries, Entry, IndexOptions}, syrtime::{ns_to_pretty_string, SyrDate}},
+    error,
+    info,
+    utils::{enter_clean_input_mode, exit_clean_input_mode}, warn,
 };
 
 pub fn cli() -> clap::Command {
@@ -128,10 +130,8 @@ pub fn cli() -> clap::Command {
                 .help("breaks down each entry's contribution to the total time")
                 .required(false)
                 .short('e')
-                .short_alias('a')
                 .short_alias('f')
                 .long("explicit")
-                .alias("all")
                 .alias("full")
                 .action(ArgAction::SetTrue)
         )
@@ -161,45 +161,142 @@ pub fn cli() -> clap::Command {
                 .index(1)
                 .action(ArgAction::Set)
         );
-
-
-    let prune_subcommand = Command::new("prune")
-        .about("Removes old blocs from entries")
-        .long_about("This subcommand is used to remove blocs of time that are older than the provided date")
+    
+    let unindex_subcommand = Command::new("unindex")
+        .about("Unindexes a specified entry")
+        .long_about("This subcommand is used to unindex a specified entry, meaning it will not appear within the choice pool for other command")
         .arg(
-            Arg::new("date")
-                .help("cutoff date for pruning")
+            Arg::new("entry")
                 .index(1)
                 .required(true)
-                .action(ArgAction::Set)
+                .help("entry to unindex")
+                .action(ArgAction::Set),
         );
+
+    let reindex_subcommand = Command::new("reindex")
+        .about("Reindexes a specified entry")
+        .long_about("This subcommand is used to reindex a specified entry that was previously unindexed")
+        .arg(
+            Arg::new("entry")
+                .index(1)
+                .required(true)
+                .help("entry to unindex")
+                .action(ArgAction::Set),
+        );
+
+    let sum_subcommand = Command::new("sum")
+        .aliases(["total", "tally"])
+        .about("Sums up the time tracked by entries")
+        .long_about("This subcommand is used to sum up the time tracked by specified entries across a span of dates\naliases: 'total', 'tally'")
+        .arg(
+            Arg::new("exclude")
+                .help("entry/entries to exclude")
+                .required(false)
+                .short('x')
+                .long("exclude")
+                .num_args(1..20)
+                .action(ArgAction::Set)
+        )
+        .arg(
+            Arg::new("explicit")
+                .help("breaks down each entry's contribution to the total time")
+                .required(false)
+                .short('e')
+                .short_alias('f')
+                .long("explicit")
+                .alias("full")
+                .action(ArgAction::SetTrue)
+        )
+        .arg(
+            Arg::new("days-back")
+                .help("number of days back included")
+                .short('d')
+                .long("days")
+                .alias("days-back")
+                .value_parser(value_parser!(usize))
+                .action(ArgAction::Set)
+                .group("logic-group")
+        )
+        .arg(
+            Arg::new("start-date")
+                .help("start date")
+                .short('s')
+                .long("start")
+                .alias("start-date")
+                .action(ArgAction::Set)
+        )
+        .arg(
+            Arg::new("end-date")
+                .help("end date")
+                .short('l')
+                .long("end")
+                .alias("end-date")
+                .action(ArgAction::Set)
+        )
+        .arg(
+            Arg::new("all")
+                .help("everything everywhere all at once")
+                .short('a')
+                .long("all")
+                .alias("EEAATO")
+                .group("all-group")
+                .action(ArgAction::SetTrue)
+        )
+        .group(
+            ArgGroup::new("logic-group")
+                .conflicts_with("start-date")
+        )
+        .group(
+            ArgGroup::new("all-group")
+                .conflicts_with_all(["days-back", "start-date", "end-date"])
+        );
+        
+
+    let prune_subcommand = Command::new("prune")
+    .about("Keeps only the blocs younger than a certain date old")
+    .long_about("This subcommand is used to remove blocs of time that are older than the provided date")
+    .arg(
+        Arg::new("date")
+            .help("cutoff date for pruning")
+            .index(1)
+            .required(true)
+            .action(ArgAction::Set)
+    );
 
     let graph_subcommand = Command::new("graph")
         .about("Creates a graph")
         .long_about("This subcommand is used to graph the entries within a specified time frame")
         .arg(
-            Arg::new("days")
-                .help("number of days back graphed")
+            Arg::new("days-back")
+                .help("number of days back included")
                 .short('d')
                 .long("days")
+                .alias("days-back")
                 .value_parser(value_parser!(usize))
                 .action(ArgAction::Set)
+                .group("logic-group")
         )
         .arg(
-            Arg::new("start")
+            Arg::new("start-date")
                 .help("start date")
                 .short('s')
                 .long("start")
+                .alias("start-date")
                 .action(ArgAction::Set)
         )
         .arg(
-            Arg::new("end")
+            Arg::new("end-date")
                 .help("end date")
                 .short('e')
                 .long("end")
+                .alias("end-date")
                 .action(ArgAction::Set)
+        )
+        .group(
+            ArgGroup::new("logic-group")
+                .conflicts_with("start-date")
         );
-
+    
     command!().subcommands([
         add_subcommand,
         list_subcommand,
@@ -207,12 +304,17 @@ pub fn cli() -> clap::Command {
         start_subcommand,
         update_subcommand,
         today_subcommand,
-        prune_subcommand,
         backup_subcommand,
+        unindex_subcommand,
+        reindex_subcommand,
+        sum_subcommand,
+        prune_subcommand,
         graph_subcommand
     ])
 }
 
+// might not be the prettiest way of doing things
+// but it's not so bad, and it lets me keep main.rs pretty clean
 pub enum ProcessOutput {
     Continue(Option<Entries>),
     Terminate, 
@@ -269,7 +371,7 @@ pub fn process_remove_subcommand(arg_matches: &ArgMatches, entries: &Entries) ->
         Err(error::Error{}).context("failed to parse entry as string")?
     };
 
-    let Some(entry) = entries.choose(entry_match.to_uppercase().as_str()) else {
+    let Some(entry) = entries.choose(entry_match.to_uppercase().as_str(), IndexOptions::Indexable) else {
         return Ok(PO::Terminate)
     };
     entry.delete()?;
@@ -283,7 +385,7 @@ pub fn process_start_subcommand(arg_matches: &ArgMatches, entries: &Entries, tod
     let Some(entry_match) = arg_matches.get_one::<String>("entry") else {
         Err(error::Error{}).context("failed to parse entry as string")?
     };
-    let Some(mut entry) = entries.choose(entry_match.to_uppercase().as_str()) else {
+    let Some(mut entry) = entries.choose(entry_match.to_uppercase().as_str(), IndexOptions::Indexable) else {
         return Ok(PO::Terminate)
     };
     // start of initialization
@@ -354,7 +456,7 @@ pub fn process_update_subcommand(arg_matches: &ArgMatches, entries: &Entries, to
     let Some(entry_match) = arg_matches.get_one::<String>("entry") else {
         Err(error::Error{}).context("failed to parse entry as string")?
     };
-    let Some(mut entry) = entries.choose(entry_match.to_uppercase().as_str()) else {
+    let Some(mut entry) = entries.choose(entry_match.to_uppercase().as_str(), IndexOptions::Indexable) else {
         return Ok(PO::Terminate)
     };
     let hour_diff: f64 = *arg_matches.get_one::<f64>("hour").unwrap_or(&0.0);
@@ -455,6 +557,151 @@ pub fn process_backup_subcommand(arg_matches: &ArgMatches, entries: &Entries, to
     Ok(PO::Terminate)
 }
 
+pub fn process_unindex_subcommand(arg_matches: &ArgMatches, entries: &Entries) -> anyhow::Result<ProcessOutput> {
+    let Some(arg_matches) = arg_matches.subcommand_matches("unindex") else {
+        return Ok(PO::Continue(None))
+    };
+
+    let Some(entry_match) = arg_matches.get_one::<String>("entry") else {
+        Err(error::Error{}).context("failed to parse entry as string")?
+    };
+    let Some(mut entry) = entries.choose(entry_match.to_uppercase().as_str(), IndexOptions::Indexable) else {
+        return Ok(PO::Terminate)
+    };
+
+    entry.inverse_indexability()?;
+    info!("unindexed '{}'", entry.get_name());
+
+    Ok(PO::Terminate)
+}
+
+pub fn process_reindex_subcommand(arg_matches: &ArgMatches, entries: &Entries) -> anyhow::Result<ProcessOutput> {
+    let Some(arg_matches) = arg_matches.subcommand_matches("reindex") else {
+        return Ok(PO::Continue(None))
+    };
+
+    let Some(entry_match) = arg_matches.get_one::<String>("entry") else {
+        Err(error::Error{}).context("failed to parse entry as string")?
+    };
+    let Some(mut entry) = entries.choose(entry_match.to_uppercase().as_str(), IndexOptions::Unindexable) else {
+        return Ok(PO::Terminate)
+    };
+
+    entry.inverse_indexability()?;
+    info!("reindexed '{}'", entry.get_name());
+
+    Ok(PO::Terminate)
+}
+
+pub fn process_sum_subcommand(arg_matches: &ArgMatches, entries: &Entries, today: &SyrDate) -> anyhow::Result<ProcessOutput> {
+    let Some(arg_matches) = arg_matches.subcommand_matches("sum") else {
+        return Ok(PO::Continue(None))
+    };
+
+    let entries: Vec<&Entry> = match arg_matches.get_many::<String>("exclude") {
+        Some(entry_match) => {
+            let excluded: Vec<Entry> = entry_match
+                .flat_map(|s| entries.choose(s.to_uppercase().as_str(), IndexOptions::All))
+                .collect();
+            entries.iter().filter(|entry| {
+                for other in excluded.iter() {
+                    if other == *entry {return false}
+                }
+                true
+            }).collect()
+        },
+        None => entries.as_inner(),
+    };
+    
+    if arg_matches.get_flag("all") {
+        let mut total_hours: f64 = 0.0;
+        for entry in entries.iter() {
+            let hours = entry.get_block_duration_total_as_hours();
+            total_hours += hours;
+            if arg_matches.get_flag("explicit") {
+                println!("{:<15} :   {:.3}", entry.get_name(), hours)
+            }
+        }
+
+        if arg_matches.get_flag("explicit") {
+            println!("\n{} {}", "――>".green(), format!("{:.3}", total_hours).bold());
+        } else {
+            println!("{}", format!("{:.3}", total_hours).bold());
+        }
+
+        return Ok(PO::Terminate);
+    }
+
+
+    let mut dates: Vec<SyrDate> = Vec::new();
+
+    // days-back + specified end-date or not
+    if let Some(num) = arg_matches.get_one::<usize>("days-back") {
+        // starts off as end date but will become the start date therefore it's already called start date
+        let mut start_date = match arg_matches.get_one::<String>("end-date") {
+            Some(string) => SyrDate::try_from(string.as_str()).unwrap_or(*today),
+            None => *today
+        };
+        dates.push(start_date);
+        for _ in 0..*num {
+            start_date = start_date
+                .previous_day()
+                .ok_or(crate::error::Error{})
+                .context("invalid number of days back, this is highly unlikely")?
+                .into();
+            dates.push(start_date);
+        }
+    }
+    // start-date + specified end-date or not
+    else {
+        let Some(start_date) = arg_matches.get_one::<String>("start-date") else {
+            Err(error::Error{}).context("failed to parse starting date as string")?
+        };
+        let mut start_date = SyrDate::try_from(start_date.as_str())?;
+
+        let end_date = match arg_matches.get_one::<String>("end-date") {
+            Some(string) => SyrDate::try_from(string.as_str()).unwrap_or(*today),
+            None => *today
+        };
+
+        if start_date > end_date {
+            Err(error::Error{}).context("starting date is larger than ending date")?
+        }
+
+        dates.push(start_date);
+        while start_date < end_date {
+            start_date = start_date
+                .next_day()
+                .ok_or(crate::error::Error{})
+                .context("could not advance date while trying to reach specified end date, this is in theory impossible")?
+                .into();
+            dates.push(start_date);
+        }
+    }
+
+    
+    let mut total_hours: f64 = 0.0;
+    for entry in entries.iter() {
+        let hours =dates
+            .iter()
+            .map(|date| entry.get_block_duration(date))
+            .filter(|x| *x != 0)
+            .fold(0_f64, |acc, x| acc + x as f64 / 3_600_000_000_000.0_f64);
+        total_hours += hours;
+        if arg_matches.get_flag("explicit") {
+            println!("{:<15} :   {:.3}", entry.get_name(), hours)
+        }
+    }
+
+    if arg_matches.get_flag("explicit") {
+        println!("\n{} {}", "――>".green(), format!("{:.3}", total_hours).bold());
+    } else {
+        println!("{}", format!("{:.3}", total_hours).bold());
+    }
+
+    Ok(PO::Terminate)    
+}
+
 pub fn process_prune_subcommand(arg_matches: &ArgMatches, mut entries: Entries) -> anyhow::Result<ProcessOutput> {
     let Some(arg_matches) = arg_matches.subcommand_matches("prune") else {
         return Ok(PO::Continue(Some(entries)))
@@ -462,12 +709,14 @@ pub fn process_prune_subcommand(arg_matches: &ArgMatches, mut entries: Entries) 
     let Some(cutoff_date) = arg_matches.get_one::<String>("date") else {
         Err(error::Error{}).context("failed to parse date as string")?
     };
+
     let cutoff_date = SyrDate::try_from(cutoff_date.as_str())?;
     let mut sum: usize = 0;
     for entry in entries.iter_mut() {
         sum += entry.prune(&cutoff_date)?;
     }
     println!("{}", format!("{} {} pruned", sum, if sum==1 {"bloc"} else {"blocs"}).bold());
+
     Ok(PO::Terminate)
 }
 
@@ -476,8 +725,13 @@ pub fn process_graph_subcommand(arg_matches: &ArgMatches, entries: Entries, toda
         return Ok(PO::Continue(Some(entries)))
     };
 
-    if let Some(num) = arg_matches.get_one::<usize>("days") {
-        let mut start_date = *today;
+    // days-back + specified end-date or not
+    if let Some(num) = arg_matches.get_one::<usize>("days-back") {
+        // starts off as end date but will become the start date therefore it's already called start date
+        let mut start_date = match arg_matches.get_one::<String>("end-date") {
+            Some(string) => SyrDate::try_from(string.as_str()).unwrap_or(*today),
+            None => *today
+        };
         for _ in 0..*num {
             start_date = start_date
                 .previous_day()
@@ -486,23 +740,25 @@ pub fn process_graph_subcommand(arg_matches: &ArgMatches, entries: Entries, toda
                 .into();
         }
         graph::graph(entries, start_date, *today)?;
-        return Ok(PO::Terminate);
+        Ok(PO::Terminate)
     }
+    // start-date + specified end-date or not
+    else {
+        let Some(start_date) = arg_matches.get_one::<String>("start-date") else {
+            Err(error::Error{}).context("failed to parse starting date as string")?
+        };
+        let start_date = SyrDate::try_from(start_date.as_str())?;
 
-    let Some(start_date) = arg_matches.get_one::<String>("start") else {
-        Err(error::Error{}).context("failed to parse starting date as string")?
-    };
-    let start_date = SyrDate::try_from(start_date.as_str())?;
+        let end_date = match arg_matches.get_one::<String>("end-date") {
+            Some(string) => SyrDate::try_from(string.as_str()).unwrap_or(*today),
+            None => *today
+        };
 
-    let Some(end_date) = arg_matches.get_one::<String>("end") else {
-        Err(error::Error{}).context("failed to parse ending date as string")?
-    };
-    let end_date = SyrDate::try_from(end_date.as_str())?;
+        if start_date > end_date {
+            Err(error::Error{}).context("starting date is larger than ending date")?
+        }
 
-    if start_date > end_date {
-        Err(error::Error{}).context("starting date is larger than ending date")?
+        crate::data::graph::graph(entries, start_date, end_date)?;
+        Ok(PO::Terminate)
     }
-
-    crate::data::graph::graph(entries, start_date, end_date)?;
-    Ok(PO::Terminate)
 }
