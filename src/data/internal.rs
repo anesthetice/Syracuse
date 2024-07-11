@@ -1,11 +1,17 @@
+use crate::{
+    algorithms, info,
+    utils::{enter_clean_input_mode, exit_clean_input_mode},
+    warn,
+};
 use anyhow::Context;
 use crossterm::{event, style::Stylize};
 use itertools::Itertools;
-use crate::{algorithms, info, utils::{enter_clean_input_mode, exit_clean_input_mode}, warn};
 
 use super::syrtime::{Blocs, SyrDate};
-use std::{io::{Read, Write}, path::{Path, PathBuf}};
-
+use std::{
+    io::{Read, Write},
+    path::{Path, PathBuf},
+};
 
 pub struct Entries(Vec<Entry>);
 
@@ -30,8 +36,8 @@ impl std::ops::DerefMut for Entries {
 
 pub enum IndexOptions {
     All,
-    Indexable,
-    Unindexable,
+    Indexed,
+    Unindexed,
 }
 
 impl Entries {
@@ -41,12 +47,14 @@ impl Entries {
     pub fn load() -> anyhow::Result<Self> {
         let entries = std::path::Path::read_dir(crate::dirs::Dirs::get().data_dir())?
             .flat_map(|res| {
-                let Ok(entry) = res.map_err(|err| {warn!("{}", err);}) else {
-                    return None
+                let Ok(entry) = res.map_err(|err| {
+                    warn!("{}", err);
+                }) else {
+                    return None;
                 };
                 let path = entry.path();
                 if path.extension()?.to_str()? != "json" {
-                    return None
+                    return None;
                 }
                 match Entry::from_file(&path) {
                     Ok(entry) => Some(entry),
@@ -56,33 +64,35 @@ impl Entries {
                     }
                 }
             })
-            .collect::<Vec<Entry>>().into();
+            .collect::<Vec<Entry>>()
+            .into();
 
         Ok(entries)
     }
-    // if indexable_exclusive is false -> we assume unindexable_exclusive
     pub fn choose(&self, query: &str, index_options: IndexOptions) -> Option<Entry> {
-        let choices: Vec<&Entry> = self.iter()
-            // keeps only entries marked as indexable if indexable_exclusive is true
-            .filter(|entry| {
-                match index_options {
-                    IndexOptions::All => true,
-                    IndexOptions::Indexable => entry.indexable,
-                    IndexOptions::Unindexable => !entry.indexable,
-                }
+        let choices: Vec<&Entry> = self
+            .iter()
+            // keeps only entries marked as indexed if indexed_exclusive is true
+            .filter(|entry| match index_options {
+                IndexOptions::All => true,
+                IndexOptions::Indexed => entry.indexed,
+                IndexOptions::Unindexed => !entry.indexed,
             })
             // outputs (score, entry)
             .map(|entry| {
-                (entry.aliases
-                    .iter()
-                    .chain(std::iter::once(&entry.name))
-                    .map(|string| {
-                        let sw_factor = crate::config::Config::get().sw_nw_ratio;
-                        sw_factor * algorithms::smith_waterman(string, query)
-                        + (1.0-sw_factor) * algorithms::needleman_wunsch(string, query)
-                    })
-                    .fold(-1.0, |acc, x| {if x > acc {x} else {acc}}),
-                entry)
+                (
+                    entry
+                        .aliases
+                        .iter()
+                        .chain(std::iter::once(&entry.name))
+                        .map(|string| {
+                            let sw_factor = crate::config::Config::get().sw_nw_ratio;
+                            sw_factor * algorithms::smith_waterman(string, query)
+                                + (1.0 - sw_factor) * algorithms::needleman_wunsch(string, query)
+                        })
+                        .fold(-1.0, |acc, x| if x > acc { x } else { acc }),
+                    entry,
+                )
             })
             // keeps entries with a high enough score
             .filter(|(score, entry)| {
@@ -90,16 +100,16 @@ impl Entries {
                 *score >= crate::config::Config::get().search_threshold
             })
             // sorts by the entry with the highest score
-            .sorted_by(|(a, _), (b, _)| {b.partial_cmp(a).unwrap_or(std::cmp::Ordering::Equal)})
+            .sorted_by(|(a, _), (b, _)| b.partial_cmp(a).unwrap_or(std::cmp::Ordering::Equal))
             // keeps only the top 3
             .take(3)
-            .map(|(_, entry)| {entry})
+            .map(|(_, entry)| entry)
             .collect();
-        
+
         let response = match choices.len() {
             0 => None,
             1 => Self::choose_single(choices[0]),
-            2.. => Self::choose_multiple(&choices)
+            2.. => Self::choose_multiple(&choices),
         };
 
         println!(
@@ -107,7 +117,7 @@ impl Entries {
             "――>".cyan(),
             match response.as_ref() {
                 Some(entry) => &entry.name,
-                None => "None"
+                None => "None",
             }
         );
 
@@ -120,21 +130,20 @@ impl Entries {
             if !event::poll(std::time::Duration::from_millis(200)).unwrap_or_else(|err| {
                 warn!("event polling issue: '{}'", err);
                 false
-            })
-            {
-                continue
+            }) {
+                continue;
             }
             let key = match event::read() {
                 Ok(event::Event::Key(key)) => key,
                 Ok(_) => continue,
                 Err(error) => {
                     warn!("event read issue: '{}'", error);
-                    continue
-                },
+                    continue;
+                }
             };
 
             if key.kind != event::KeyEventKind::Press {
-                continue
+                continue;
             }
             match key.code {
                 event::KeyCode::Esc
@@ -143,12 +152,12 @@ impl Entries {
                 | event::KeyCode::Char('N')
                 | event::KeyCode::Char('n') => {
                     exit_clean_input_mode();
-                    break None
-                },
+                    break None;
+                }
                 event::KeyCode::Char('y') | event::KeyCode::Enter => {
                     exit_clean_input_mode();
-                    break Some(choice.clone())
-                },
+                    break Some(choice.clone());
+                }
                 _ => (),
             }
         }
@@ -162,48 +171,44 @@ impl Entries {
             if !event::poll(std::time::Duration::from_millis(200)).unwrap_or_else(|err| {
                 warn!("event polling issue: '{}'", err);
                 false
-            })
-            {
-                continue
+            }) {
+                continue;
             }
             let key = match event::read() {
                 Ok(event::Event::Key(key)) => key,
                 Ok(_) => continue,
                 Err(error) => {
                     warn!("event read issue: '{}'", error);
-                    continue
-                },
+                    continue;
+                }
             };
 
             if key.kind != event::KeyEventKind::Press {
-                continue
+                continue;
             }
             match key.code {
-                event::KeyCode::Esc
-                | event::KeyCode::Char('q')
-                | event::KeyCode::Char('n') => {
+                event::KeyCode::Esc | event::KeyCode::Char('q') | event::KeyCode::Char('n') => {
                     exit_clean_input_mode();
                     break None;
-                },
+                }
                 event::KeyCode::Enter => {
                     exit_clean_input_mode();
                     break Some(choices[0].clone());
-                },
+                }
                 event::KeyCode::Char(chr) => {
                     if !chr.is_numeric() {
-                        continue
+                        continue;
                     }
                     let Ok(idx) = chr.to_string().parse::<usize>() else {
-                        continue
+                        continue;
                     };
-                    if let Some(entry) = choices.get(idx-1) {
+                    if let Some(entry) = choices.get(idx - 1) {
                         exit_clean_input_mode();
-                        break Some((*entry).clone())
+                        break Some((*entry).clone());
                     }
                 }
                 _ => {}
             }
-
         }
     }
     // path must be validated beforehand
@@ -221,7 +226,7 @@ pub struct Entry {
     pub(super) name: String,
     pub(super) aliases: Vec<String>,
     pub(super) blocs: Blocs,
-    pub(super) indexable: bool,
+    pub(super) indexed: bool,
 }
 
 impl std::fmt::Debug for Entry {
@@ -230,7 +235,7 @@ impl std::fmt::Debug for Entry {
             f,
             "{}; {}\n―――――――――――――――\n{}",
             self.name,
-            self.aliases.join(", "),
+            self.aliases.join(", ").dim(),
             self.blocs
         )
     }
@@ -238,12 +243,7 @@ impl std::fmt::Debug for Entry {
 
 impl std::fmt::Display for Entry {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "{}; {}",
-            self.name,
-            self.aliases.join(", ")
-        )
+        write!(f, "{}; {}", self.name, self.aliases.join(", ").dim())
     }
 }
 
@@ -251,14 +251,16 @@ impl PartialEq for Entry {
     fn eq(&self, other: &Self) -> bool {
         self.name == other.name
     }
-    fn ne(&self, other: &Self) -> bool {
-        self.name != other.name
-    }
 }
 
 impl Entry {
     pub fn new(name: String, aliases: Vec<String>) -> Self {
-        Self { name, aliases, blocs: Blocs::default(), indexable: true }
+        Self {
+            name,
+            aliases,
+            blocs: Blocs::default(),
+            indexed: true,
+        }
     }
 
     pub fn get_name(&self) -> &str {
@@ -266,19 +268,32 @@ impl Entry {
     }
 
     fn from_file(filepath: &Path) -> anyhow::Result<Self> {
-        let separator: &str = crate::config::Config::get().entry_file_name_separtor.as_str();
-        let mut file_name = filepath.file_stem().with_context(|| format!("failed to obtain filestem of: '{}'", filepath.display()))?
-            .to_str().with_context(|| format!("filename OsStr cannot be converted to valid utf-8: '{}'", filepath.display()))?;
+        let separator: &str = crate::config::Config::get()
+            .entry_file_name_separtor
+            .as_str();
+        let mut file_name = filepath
+            .file_stem()
+            .with_context(|| format!("failed to obtain filestem of: '{}'", filepath.display()))?
+            .to_str()
+            .with_context(|| {
+                format!(
+                    "filename OsStr cannot be converted to valid utf-8: '{}'",
+                    filepath.display()
+                )
+            })?;
 
-        let indexable = !file_name.ends_with(".noindex");
-        if !indexable {
+        let indexed = !file_name.ends_with(".noindex");
+        if !indexed {
             // safe
-            file_name = &file_name[..(file_name.len()-8)];
+            file_name = &file_name[..(file_name.len() - 8)];
         }
 
-        let (name, aliases) : (String, Vec<String>) = {
+        let (name, aliases): (String, Vec<String>) = {
             if let Some((name, aliases)) = file_name.split_once(separator) {
-                (name.to_string(), aliases.split(separator).map(|s| s.to_string()).collect())
+                (
+                    name.to_string(),
+                    aliases.split(separator).map(|s| s.to_string()).collect(),
+                )
             } else {
                 (file_name.to_string(), Vec::new())
             }
@@ -291,26 +306,41 @@ impl Entry {
             .open(filepath)?
             .read_to_end(&mut buffer)?;
 
-        Ok(Self { name, aliases, blocs: serde_json::from_slice(&buffer)?, indexable })   
+        Ok(Self {
+            name,
+            aliases,
+            blocs: serde_json::from_slice(&buffer)?,
+            indexed,
+        })
     }
 
     pub fn get_filestem(&self) -> String {
-        let separator: &str = crate::config::Config::get().entry_file_name_separtor.as_str();
+        let separator: &str = crate::config::Config::get()
+            .entry_file_name_separtor
+            .as_str();
         let mut filestem = self.name.clone();
-        if !self.aliases.is_empty() {filestem.push_str(separator)}
+        if !self.aliases.is_empty() {
+            filestem.push_str(separator)
+        }
         filestem.push_str(&self.aliases.join(separator));
         filestem
     }
 
     fn get_filepath(&self) -> std::path::PathBuf {
-        crate::dirs::Dirs::get()
-            .data_dir()
-            .join(self.get_filestem() + if self.indexable {".json"} else {".noindex.json"})
+        crate::dirs::Dirs::get().data_dir().join(
+            self.get_filestem()
+                + if self.indexed {
+                    ".json"
+                } else {
+                    ".noindex.json"
+                },
+        )
     }
 
     // true = valid, false = invalid
     pub fn check_new_entry_name_validity(&self, new_entry_name: &str) -> bool {
-        !(self.name.as_str() == new_entry_name || self.aliases.iter().any(|alias| alias == new_entry_name))
+        !(self.name.as_str() == new_entry_name
+            || self.aliases.iter().any(|alias| alias == new_entry_name))
     }
 
     pub fn get_block_duration(&self, date: &SyrDate) -> u128 {
@@ -320,7 +350,7 @@ impl Entry {
     pub fn get_block_duration_total_as_hours(&self) -> f64 {
         self.blocs
             .iter()
-            .flat_map(|(_, x)| if *x != 0 {Some(*x)} else {None})
+            .flat_map(|(_, x)| if *x != 0 { Some(*x) } else { None })
             .fold(0_f64, |acc, x| acc + x as f64 / 3_600_000_000_000.0_f64)
     }
 
@@ -338,7 +368,15 @@ impl Entry {
             .open(filepath)?
             .write_all(&data)?;
 
-        info!("saved '{}' to '{}'", self.name, filepath.parent().unwrap_or(PathBuf::new().as_path()).to_str().unwrap_or("?"));
+        info!(
+            "saved '{}' to '{}'",
+            self.name,
+            filepath
+                .parent()
+                .unwrap_or(PathBuf::new().as_path())
+                .to_str()
+                .unwrap_or("?")
+        );
         Ok(())
     }
 
@@ -376,9 +414,13 @@ impl Entry {
         Ok(num)
     }
 
+    pub fn is_indexed(&self) -> bool {
+        self.indexed
+    }
+
     pub fn inverse_indexability(&mut self) -> anyhow::Result<()> {
         let old_filepath = self.get_filepath();
-        self.indexable = !self.indexable;
+        self.indexed = !self.indexed;
         std::fs::rename(old_filepath, self.get_filepath())?;
         Ok(())
     }

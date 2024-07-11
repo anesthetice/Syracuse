@@ -5,7 +5,9 @@ use std::{
     sync::OnceLock,
 };
 
-use crate::{animation::AnimationBuilder, data::graph::interpolation::InterpolationMethod, warn};
+use crate::{
+    animation::AnimationBuilder, data::graphing::interpolation::InterpolationMethod, warn,
+};
 
 pub static CONFIG: OnceLock<Config> = OnceLock::new();
 pub static VERBOSE: OnceLock<bool> = OnceLock::new();
