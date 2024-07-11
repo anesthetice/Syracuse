@@ -9,7 +9,7 @@ syracuse graph --days 14
 
 <img src="https://github.com/anesthetice/Syracuse/blob/main/assets/linear_interpolation.png" alt="linear interpolation" width="70%"/>
 
-<img src=https://github.com/anesthetice/Syracuse/blob/main/assets/makima_interpolation.png" alt="makima interpolation" width="70%"/>
+<img src="https://github.com/anesthetice/Syracuse/blob/main/assets/makima_interpolation.png" alt="makima interpolation" width="70%"/>
 
 ### Build
 
