@@ -1,10 +1,14 @@
-use serde::{Deserialize, Serialize};
-use std::{io::{Read, Write}, sync::OnceLock};
 use crossterm::style::Stylize;
+use serde::{Deserialize, Serialize};
+use std::{
+    io::{Read, Write},
+    sync::OnceLock,
+};
 
 use crate::{animation::AnimationBuilder, data::graph::interpolation::InterpolationMethod, warn};
 
-pub static CONFIG: OnceLock<Config> = OnceLock::new(); 
+pub static CONFIG: OnceLock<Config> = OnceLock::new();
+pub static VERBOSE: OnceLock<bool> = OnceLock::new();
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Config {
@@ -44,7 +48,7 @@ pub struct Config {
     pub frame_period: u64,
     // don't ask me why this should be in a config file
     pub animation: AnimationBuilder,
-    
+
     // empty string means where directory from which syracuse was executed
     pub graph_output_dir: String,
     // "Linear" or "Makima" interpolation are currently available, note that Makima overshoots
@@ -64,7 +68,7 @@ pub struct Config {
     // graph sum line color
     pub graph_sum_line_rgb: (u8, u8, u8),
     // the colors used for entry markers
-    pub graph_marker_rgb: Vec<(u8, u8, u8)>
+    pub graph_marker_rgb: Vec<(u8, u8, u8)>,
 }
 
 impl Default for Config {
@@ -111,7 +115,7 @@ impl Default for Config {
                 (117, 185, 150),
                 // cerulean
                 (0, 143, 190),
-            ]
+            ],
         }
     }
 }
@@ -124,15 +128,25 @@ impl Config {
         match Self::from_file(filepath) {
             Ok(config) => config,
             Err(error) => {
-                warn!("failed to load configuration from file, caused by : {}", error);
+                warn!(
+                    "failed to load configuration from file, caused by : {}",
+                    error
+                );
                 let config = Self::default();
                 let Ok(downcast_error) = error.downcast::<std::io::Error>() else {
-                    return config
+                    return config;
                 };
                 if downcast_error.kind() == std::io::ErrorKind::NotFound {
                     match config.to_file(filepath) {
-                        Ok(()) => warn!("created default configuration file, at : {}", filepath.display()),
-                        Err(error) => warn!("failed to create default configuration file, at : {}, caused by : {}", filepath.display(), error)
+                        Ok(()) => warn!(
+                            "created default configuration file, at : {}",
+                            filepath.display()
+                        ),
+                        Err(error) => warn!(
+                            "failed to create default configuration file, at : {}, caused by : {}",
+                            filepath.display(),
+                            error
+                        ),
                     }
                 }
                 config

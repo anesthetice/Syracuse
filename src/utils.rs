@@ -1,10 +1,14 @@
-use crossterm::{cursor, execute, style::Stylize, terminal::{disable_raw_mode, enable_raw_mode}};
+use crossterm::{
+    cursor, execute,
+    style::Stylize,
+    terminal::{disable_raw_mode, enable_raw_mode},
+};
 use std::io::stdout;
 
 #[macro_export]
 macro_rules! info {
     ($($args:tt)*) => {
-        if $crate::config::Config::get().debug {
+        if $crate::config::Config::get().debug || *$crate::config::VERBOSE.get().unwrap_or(&false) {
             eprintln!("[{}]  {}", "INFO".cyan(), format_args!($($args)*))
         }
     };
