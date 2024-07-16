@@ -1,11 +1,11 @@
-use std::collections::BTreeMap;
 use anyhow::Context;
-use serde::{Serialize, Deserialize, de::Visitor};
 use itertools::Itertools;
+use serde::{de::Visitor, Deserialize, Serialize};
+use std::collections::BTreeMap;
 
 // u128 representing nanoseconds
 #[derive(Clone, Default, Serialize, Deserialize)]
-pub(super) struct Blocs (BTreeMap<SyrDate, u128>);
+pub(super) struct Blocs(BTreeMap<SyrDate, u128>);
 
 impl std::ops::Deref for Blocs {
     type Target = BTreeMap<SyrDate, u128>;
@@ -93,7 +93,7 @@ impl SyrDate {
 impl std::fmt::Display for SyrDate {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
-            f, 
+            f,
             "{:0>2}/{:0>2}/{:0>4}",
             self.day(),
             self.month() as u8,
@@ -110,10 +110,15 @@ impl From<time::Date> for SyrDate {
 
 impl TryFrom<&str> for SyrDate {
     type Error = anyhow::Error;
-    fn try_from(value: &str) -> Result<Self, Self::Error> 
-    {
-        let Some(split_char) = ['/', '.', '-', '_'].into_iter().filter(|char| value.contains(*char)).nth(0) else {
-            Err(crate::error::Error{}).context("failed to parse date, no separator character detected, (e.g. '/', '.', '-', '_')")?
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        let Some(split_char) = ['/', '.', '-', '_']
+            .into_iter()
+            .filter(|char| value.contains(*char))
+            .nth(0)
+        else {
+            Err(crate::error::Error {}).context(
+                "failed to parse date, no separator character detected, (e.g. '/', '.', '-', '_')",
+            )?
         };
         let input: Vec<&str> = value.split(split_char).collect();
         if input.len() != 3 {
@@ -126,7 +131,6 @@ impl TryFrom<&str> for SyrDate {
         ).context("failed to parse date, invalid date format, expected dd/mm/yyyy, or with '/' alternatives such as '.'")?))
     }
 }
-
 
 impl Serialize for SyrDate {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
@@ -172,13 +176,17 @@ impl<'a> Visitor<'a> for SyrDateVisitor {
     where
         E: serde::de::Error,
     {
-        SyrDate::try_from(v).or(Err(E::custom("failed to parse date, invalid date format, expected dd/mm/yyyy")))
+        SyrDate::try_from(v).or(Err(E::custom(
+            "failed to parse date, invalid date format, expected dd/mm/yyyy",
+        )))
     }
 
     fn visit_string<E>(self, v: String) -> Result<Self::Value, E>
     where
         E: serde::de::Error,
     {
-        SyrDate::try_from(v.as_str()).or(Err(E::custom("ffailed to parse date, invalid date format, expected dd/mm/yyyy")))
+        SyrDate::try_from(v.as_str()).or(Err(E::custom(
+            "ffailed to parse date, invalid date format, expected dd/mm/yyyy",
+        )))
     }
 }
