@@ -131,7 +131,7 @@ impl Config {
             Ok(config) => config,
             Err(error) => {
                 warn!(
-                    "failed to load configuration from file, caused by : {}",
+                    "failed to load configuration from file, caused by: '{}'",
                     error
                 );
                 let config = Self::default();
@@ -141,11 +141,11 @@ impl Config {
                 if downcast_error.kind() == std::io::ErrorKind::NotFound {
                     match config.to_file(filepath) {
                         Ok(()) => warn!(
-                            "created default configuration file, at : {}",
+                            "created default configuration file, at: '{}'",
                             filepath.display()
                         ),
                         Err(error) => warn!(
-                            "failed to create default configuration file, at : {}, caused by : {}",
+                            "failed to create default configuration file, at: '{}', caused by: '{}'",
                             filepath.display(),
                             error
                         ),

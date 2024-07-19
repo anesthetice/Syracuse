@@ -24,12 +24,14 @@ fn main() -> anyhow::Result<()> {
     let dirs =
         ProjectDirs::from("", "", "syracuse").context("failed to get project directories")?;
     if !dirs.config_dir().exists() {
-        std::fs::create_dir(dirs.config_dir())
-            .context("failed to create a config directory for the application")?
+        std::fs::create_dir_all(dirs.config_dir())
+            .context("failed to create a config directory for the application")?;
+        warn!("created config directory at: '{}'", dirs.config_dir().display())
     }
     if !dirs.data_dir().exists() {
-        std::fs::create_dir(dirs.data_dir())
-            .context("failed to create a data directory for the application")?
+        std::fs::create_dir_all(dirs.data_dir())
+            .context("failed to create a data directory for the application")?;
+        warn!("created data directory at: '{}'", dirs.data_dir().display())
     }
 
     // this should never fail, unwrapping is fine
