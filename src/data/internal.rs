@@ -7,11 +7,12 @@ use anyhow::Context;
 use crossterm::{event, style::Stylize};
 use itertools::Itertools;
 
-use super::syrtime::{Blocs, SyrDate};
 use std::{
     io::{Read, Write},
     path::{Path, PathBuf},
 };
+
+use super::syrtime::blocs::Blocs;
 
 pub struct Entries(Vec<Entry>);
 

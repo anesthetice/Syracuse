@@ -1,18 +1,20 @@
 [package]
 name = "syracuse"
-version = "2.3.1"
+version = "3.0.0"
 edition = "2021"
 
 [dependencies]
-anyhow = { version = "1.0.*" }
-clap = { version = "4.5.*", features = ["cargo"] }
-crossterm = { version = "0.27.*", features = ["serde"] }
-directories = { version = "5.0.*" }
-itertools = { version = "0.12.*" }
-plotters = { version = "0.3.*" }
-serde = { version = "1.0.*", features = ["derive"] }
-serde_json = { version = "1.0.*" }
-time = { version = "0.3.*", features = ["serde"] }
+anyhow = { version = "1.0" }
+clap = { version = "4.5", features = ["cargo"] }
+crossterm = { version = "0.27", features = ["serde"] }
+directories = { version = "5.0" }
+itertools = { version = "0.12" }
+jiff = { version = "0.1", features = ["serde"] }
+plotters = { version = "0.3" }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = { version = "1.0" }
+tracing = { version = "0.1" }
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 
 [profile.release]
 opt-level = 3

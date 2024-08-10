@@ -52,8 +52,9 @@ pub fn process_graph_subcommand(
         for _ in 0..*num {
             start_date = start_date
                 .previous_day()
-                .ok_or(crate::error::Error {})
-                .context("invalid number of days back, this is highly unlikely")?
+                .ok_or(anyhow::anyhow!(
+                    "invalid number of days back, this is highly unlikely"
+                ))?
                 .into();
         }
         graphing::graph(entries, start_date, *today)?;

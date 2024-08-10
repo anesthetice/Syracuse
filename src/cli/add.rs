@@ -23,23 +23,25 @@ pub fn process_add_subcommand(
         return Ok(PO::Continue(None));
     };
     let Some(entry_match) = arg_matches.get_many::<String>("entry") else {
-        Err(error::Error {}).context("failed to parse entry as string")?
+        Err(anyhow::anyhow!("Failed to parse entry as string"))?
     };
     let mut names: Vec<String> = entry_match.map(|s| s.to_uppercase()).collect();
 
     let separator_characters = config::Config::get().entry_file_name_separtor.as_str();
     for name in names.iter() {
         if name.contains(separator_characters) {
-            Err(error::Error{})
-                    .with_context(|| format!("failed to add new entry, the name and or aliases provided conflict with the separator characters: '{}'", separator_characters))?
+            Err(anyhow::anyhow!(
+                "Failed to add new entry, '{name}' conflicts with the separator characters: '{separator_characters}'",
+            ))?;
         }
     }
 
     for entry in entries.iter() {
         for name in names.iter() {
             if !entry.check_new_entry_name_validity(name) {
-                Err(error::Error{})
-                    .with_context(|| format!("failed to add new entry, the name and or aliases provided conflict with an existing entry: '{}'", entry))?
+                Err(anyhow::anyhow!(
+                    "Failed to add new entry, '{name}' conflict with an existing entry: '{entry}'"
+                ))?
             }
         }
     }

@@ -4,11 +4,9 @@ mod cli;
 mod config;
 mod data;
 mod dirs;
-mod error;
 mod utils;
 
 use anyhow::Context;
-use crossterm::style::Stylize;
 use directories::ProjectDirs;
 
 use cli::{
@@ -18,23 +16,50 @@ use cli::{
     process_today_subcommand, process_unindex_subcommand, process_update_subcommand,
     ProcessOutput as PO,
 };
-use data::{internal::Entries, syrtime::SyrDate};
+use data::{internal::Entries, syrtime::syrdate::SyrDate};
+use tracing::{debug, info, trace, warn};
+use tracing_subscriber::{fmt::time::Uptime, EnvFilter};
+
 fn main() -> anyhow::Result<()> {
-    // start of initialization
-    let dirs =
-        ProjectDirs::from("", "", "syracuse").context("failed to get project directories")?;
-    if !dirs.config_dir().exists() {
-        std::fs::create_dir_all(dirs.config_dir())
-            .context("failed to create a config directory for the application")?;
-        warn!("created config directory at: '{}'", dirs.config_dir().display())
-    }
-    if !dirs.data_dir().exists() {
-        std::fs::create_dir_all(dirs.data_dir())
-            .context("failed to create a data directory for the application")?;
-        warn!("created data directory at: '{}'", dirs.data_dir().display())
+    // Not great but not catastrophic either, this won't stop the application
+    if let Err(e) = tracing_subscriber::fmt()
+        .with_env_filter(EnvFilter::try_from_default_env().unwrap_or(EnvFilter::new("info")))
+        .with_timer(Uptime::default())
+        .compact()
+        .try_init()
+    {
+        eprintln!("Failed to initialize tracing: '{e}'")
     }
 
+    debug!("Gathering and checking required directories");
+    let dirs =
+        ProjectDirs::from("", "", "syracuse").context("Failed to get project directories")?;
+
+    let dirs_check = || -> anyhow::Result<()> {
+        let conf_dir = dirs.config_dir();
+        if !conf_dir.exists() {
+            warn!("Missing config directory");
+            std::fs::create_dir_all(conf_dir).context(format!(
+                "Failed to create the config directory at: '{}'",
+                conf_dir.display()
+            ))?;
+            info!("Created the config directory at: '{}'", conf_dir.display())
+        }
+        let data_dir = dirs.data_dir();
+        if !data_dir.exists() {
+            warn!("Missing data directory");
+            std::fs::create_dir_all(data_dir).context(format!(
+                "Failed to create the data directory at: '{}'",
+                data_dir.display(),
+            ))?;
+            info!("Created the data directory at: '{}'", data_dir.display())
+        }
+        Ok(())
+    };
+    dirs_check()?;
+
     // this should never fail, unwrapping is fine
+    debug!("Locking the directories and the program's configuration");
     config::CONFIG
         .set(config::Config::load(
             &dirs.config_dir().join("syracuse.conf"),
@@ -42,31 +67,21 @@ fn main() -> anyhow::Result<()> {
         .unwrap();
     dirs::DIRS.set(dirs).unwrap();
 
-    let datetime = {
-        let lo = config::Config::get().local_offset;
-        match time::UtcOffset::from_hms(lo[0], lo[1], lo[2]) {
-            Ok(offset) => time::OffsetDateTime::now_utc().to_offset(offset),
-            Err(err) => {
-                warn!("failed to create UtcOffset with the provided local time offset: '{err}'");
-                time::OffsetDateTime::now_utc()
-            }
-        }
-    };
+    // not the biggest fan of this to be honest, I'd rather have access to the warning
+    let datetime = jiff::Zoned::now();
+    debug!("Acquired local datetime: {}", datetime);
+    let datetime = datetime.datetime();
+
     let time = datetime.time();
     let date: SyrDate = {
         if time.hour() < config::Config::get().night_owl_hour_extension {
-            datetime
-                .date()
-                .previous_day()
-                .unwrap_or(datetime.date())
-                .into()
+            datetime.date().yesterday()?.into()
         } else {
             datetime.date().into()
         }
     };
 
     let entries = Entries::load()?;
-    // end of initialization
 
     let command = cli::cli();
     let arg_matches = command.get_matches();
