@@ -23,7 +23,7 @@ pub fn process_prune_subcommand(
         return Ok(PO::Continue(Some(entries)));
     };
     let Some(cutoff_date) = arg_matches.get_one::<String>("date") else {
-        Err(error::Error {}).context("failed to parse date as string")?
+        Err(anyhow::anyhow!("Failed to parse date as string"))?
     };
 
     let cutoff_date = SyrDate::try_from(cutoff_date.as_str())?;
@@ -31,7 +31,7 @@ pub fn process_prune_subcommand(
     for entry in entries.iter_mut() {
         sum += entry.prune(&cutoff_date)?;
     }
-    println!(
+    info!(
         "{}",
         format!("{} {} pruned", sum, if sum == 1 { "bloc" } else { "blocs" }).bold()
     );

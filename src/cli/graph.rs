@@ -1,3 +1,5 @@
+use crate::data::syrtime::syrspan::SyrSpan;
+
 use super::*;
 
 pub(super) fn graph_subcommand() -> Command {
@@ -44,39 +46,33 @@ pub fn process_graph_subcommand(
 
     // days-back + specified end-date or not
     if let Some(num) = arg_matches.get_one::<usize>("days-back") {
-        // starts off as end date but will become the start date therefore it's already called start date
-        let mut start_date = match arg_matches.get_one::<String>("end-date") {
-            Some(string) => SyrDate::try_from(string.as_str()).unwrap_or(*today),
+        let mut end_date = match arg_matches.get_one::<String>("end-date") {
+            Some(string) => SyrDate::try_from(string).unwrap_or(*today),
             None => *today,
         };
-        for _ in 0..*num {
-            start_date = start_date
-                .previous_day()
-                .ok_or(anyhow::anyhow!(
-                    "invalid number of days back, this is highly unlikely"
-                ))?
-                .into();
-        }
-        graphing::graph(entries, start_date, *today)?;
+
+        let date_span = SyrSpan::from_end_and_days_back(*end_date, *num as i64);
+        graphing::graph(entries, date_span)?;
         Ok(PO::Terminate)
     }
     // start-date + specified end-date or not
     else {
         let Some(start_date) = arg_matches.get_one::<String>("start-date") else {
-            Err(error::Error {}).context("failed to parse starting date as string")?
+            Err(anyhow::anyhow!("Failed to parse starting date as string"))?
         };
-        let start_date = SyrDate::try_from(start_date.as_str())?;
+        let start_date = SyrDate::try_from(start_date)?;
 
         let end_date = match arg_matches.get_one::<String>("end-date") {
-            Some(string) => SyrDate::try_from(string.as_str()).unwrap_or(*today),
+            Some(s) => SyrDate::try_from(s).unwrap_or(*today),
             None => *today,
         };
 
         if start_date > end_date {
-            Err(error::Error {}).context("starting date is larger than ending date")?
+            Err(anyhow::anyhow!("starting date is larger than ending date"))?
         }
 
-        crate::data::graphing::graph(entries, start_date, end_date)?;
+        let date_span = SyrSpan::from_start_and_end(start_date, end_date);
+        crate::data::graphing::graph(entries, date_span)?;
         Ok(PO::Terminate)
     }
 }

@@ -1,36 +1,24 @@
-use add::add_subcommand;
-use anyhow::Context;
-use backup::backup_subcommand;
+use anyhow::{anyhow, Context};
 use clap::{command, value_parser, Arg, ArgAction, ArgGroup, ArgMatches, Command};
 use crossterm::{event, style::Stylize};
-use graph::graph_subcommand;
-use list::list_subcommand;
-use prune::prune_subcommand;
-use reindex::reindex_subcommand;
-use remove::remove_subcommand;
-use start::start_subcommand;
 use std::{
     path::PathBuf,
     time::{Duration, Instant},
 };
-use sum::sum_subcommand;
-use time::{OffsetDateTime, Time};
-use today::today_subcommand;
-use unindex::unindex_subcommand;
-use update::update_subcommand;
-
 use crate::{
     animation, config,
     data::{
         graphing,
         internal::{Entries, Entry, IndexOptions},
-        syrtime::{ns_to_pretty_string, SyrDate},
+        syrtime::syrdate::SyrDate,
     },
-    error, info,
     utils::{enter_clean_input_mode, exit_clean_input_mode},
-    warn,
 };
-
+use crate::data::syrtime::blocs::sec_to_pretty_string;
+use jiff::civil::Time;
+use jiff::civil::DateTime;
+use jiff::Span;
+use tracing::{debug, info, warn, error};
 mod add;
 mod backup;
 mod graph;
@@ -44,8 +32,8 @@ mod today;
 mod unindex;
 mod update;
 
-pub fn cli() -> clap::Command {
-    command!()
+pub fn cli(entries: Entries, today: SyrDate) -> anyhow::Result<()> {
+    let command = command!()
         .arg(
             Arg::new("verbose")
                 .long("verbose")
@@ -56,19 +44,34 @@ pub fn cli() -> clap::Command {
                 .action(ArgAction::SetTrue),
         )
         .subcommands([
-            add_subcommand(),
-            list_subcommand(),
-            remove_subcommand(),
-            start_subcommand(),
-            update_subcommand(),
-            today_subcommand(),
+            add::subcommand(),
+            list::subcommand(),
+            remove::subcommand(),
+            start::subcommand(),
+            update::subcommand(),
+            today::subcommand(),
             backup_subcommand(),
             unindex_subcommand(),
             reindex_subcommand(),
             sum_subcommand(),
             prune_subcommand(),
             graph_subcommand(),
-        ])
+        ]);
+
+    let arg_matches = command.get_matches();
+
+    match arg_matches.subcommand() {
+        Some(("add", arg_matches)) => add::process(arg_matches, &entries),
+        Some(("list", arg_matches)) => list::process(arg_matches, &entries),
+        Some(("remove", arg_matches)) => remove::process(arg_matches, &entries),
+        Some(("start", arg_matches)) => start::process(arg_matches, &entries, &today),
+        Some(("", arg_matches)) => update::process(arg_matches, &entries, &today),
+        Some(("", arg_matches)) => ,
+        Some(("", arg_matches)) => ,
+        Some(("", arg_matches)) => ,
+        Some(_) => Ok(()),
+        None => Ok(()),
+    }
 }
 
 // might not be the prettiest way of doing things

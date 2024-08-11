@@ -12,7 +12,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use super::syrtime::blocs::Blocs;
+use super::syrtime::{blocs::Blocs, syrdate::SyrDate};
 
 pub struct Entries(Vec<Entry>);
 
@@ -129,7 +129,7 @@ impl Entries {
         enter_clean_input_mode();
         loop {
             if !event::poll(std::time::Duration::from_millis(200)).unwrap_or_else(|err| {
-                warn!("event polling issue: '{}'", err);
+                warn!("Event polling issue: '{}'", err);
                 false
             }) {
                 continue;
@@ -138,7 +138,7 @@ impl Entries {
                 Ok(event::Event::Key(key)) => key,
                 Ok(_) => continue,
                 Err(error) => {
-                    warn!("event read issue: '{}'", error);
+                    warn!("Event read issue: '{}'", error);
                     continue;
                 }
             };
@@ -170,7 +170,7 @@ impl Entries {
         enter_clean_input_mode();
         loop {
             if !event::poll(std::time::Duration::from_millis(200)).unwrap_or_else(|err| {
-                warn!("event polling issue: '{}'", err);
+                warn!("Event polling issue: '{}'", err);
                 false
             }) {
                 continue;
@@ -179,7 +179,7 @@ impl Entries {
                 Ok(event::Event::Key(key)) => key,
                 Ok(_) => continue,
                 Err(error) => {
-                    warn!("event read issue: '{}'", error);
+                    warn!("Event read issue: '{}'", error);
                     continue;
                 }
             };
@@ -216,7 +216,7 @@ impl Entries {
     pub fn backup(&self, path: std::path::PathBuf) {
         for entry in self.iter() {
             if let Err(error) = entry.save_to_file(&path.join(entry.get_filestem() + ".json")) {
-                warn!("failed to back up an entry, caused by: '{error}'")
+                warn!("Failed to back up an entry: '{error}'")
             }
         }
     }
@@ -344,15 +344,15 @@ impl Entry {
             || self.aliases.iter().any(|alias| alias == new_entry_name))
     }
 
-    pub fn get_block_duration(&self, date: &SyrDate) -> u128 {
-        *self.blocs.get(date).unwrap_or(&0)
+    pub fn get_block_duration(&self, date: &SyrDate) -> f64 {
+        *self.blocs.get(date).unwrap_or(&0.0)
     }
 
     pub fn get_block_duration_total_as_hours(&self) -> f64 {
         self.blocs
             .iter()
-            .flat_map(|(_, x)| if *x != 0 { Some(*x) } else { None })
-            .fold(0_f64, |acc, x| acc + x as f64 / 3_600_000_000_000.0_f64)
+            .flat_map(|(_, x)| if *x != 0.0 { Some(*x) } else { None })
+            .fold(0_f64, |acc, x| acc + x as f64 / 3600.0)
     }
 
     pub fn save(&self) -> anyhow::Result<()> {
@@ -370,7 +370,7 @@ impl Entry {
             .write_all(&data)?;
 
         info!(
-            "saved '{}' to '{}'",
+            "Saved '{}' to '{}'",
             self.name,
             filepath
                 .parent()
@@ -383,11 +383,11 @@ impl Entry {
 
     pub fn delete(self) -> anyhow::Result<()> {
         std::fs::remove_file(self.get_filepath())?;
-        info!("removed '{}'", self.name);
+        info!("Removed '{}'", self.name);
         Ok(())
     }
 
-    pub fn increase_bloc_duration(&mut self, date: &SyrDate, duration: u128) {
+    pub fn increase_bloc_duration(&mut self, date: &SyrDate, duration: f64) {
         if let Some(val) = self.blocs.get_mut(date) {
             *val += duration
         } else {
@@ -395,7 +395,7 @@ impl Entry {
         }
     }
 
-    pub fn decrease_bloc_duration(&mut self, date: &SyrDate, duration: u128) {
+    pub fn decrease_bloc_duration(&mut self, date: &SyrDate, duration: f64) {
         let mut delete_bloc: bool = false;
         if let Some(val) = self.blocs.get_mut(date) {
             if duration > *val {
@@ -405,7 +405,7 @@ impl Entry {
             }
         }
         if delete_bloc && self.blocs.remove(date).is_none() {
-            warn!("failed to decrease duration, could not remove bloc")
+            warn!("Failed to decrease duration, could not remove bloc")
         }
     }
 

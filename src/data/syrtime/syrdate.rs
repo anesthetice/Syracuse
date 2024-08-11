@@ -8,6 +8,14 @@ impl SyrDate {
     pub fn new(date: jiff::civil::Date) -> Self {
         Self(date)
     }
+    pub fn to_string_with_formatting(&self, sep_char: char) -> String {
+        format!(
+            "{:0>2}{sep_char}{:0>2}{sep_char}{:0>4}",
+            self.day(),
+            self.month(),
+            self.year()
+        )
+    }
 }
 
 impl std::fmt::Display for SyrDate {
@@ -16,7 +24,7 @@ impl std::fmt::Display for SyrDate {
             f,
             "{:0>2}/{:0>2}/{:0>4}",
             self.day(),
-            self.month() as u8,
+            self.month(),
             self.year()
         )
     }
@@ -36,17 +44,24 @@ impl TryFrom<&str> for SyrDate {
             .filter(|char| value.contains(*char))
             .nth(0)
             .ok_or(anyhow::anyhow!(
-                "Failed to parse date, no separator character detected, (e.g. '/', '.', '-', '_')"
+                "Failed to parse date, no separator character detected, ('/', '.', '-', '_')"
             ))?;
         let input: Vec<&str> = value.split(split_char).collect();
         if input.len() != 3 {
-            Err(crate::error::Error{}).context("Failed to parse date, invalid date format, expected dd/mm/yyyy, or with '/' alternatives such as '.', or '_',  or '-'")?;
+            Err(anyhow::anyhow!("Failed to parse date, invalid date format, expected dd/mm/yyyy, or with '/' alternatives such as '.', '_', or '-'"))?;
         }
         Ok(Self::from(jiff::civil::Date::new(
             input[2].parse::<i16>().context("Failed to parse date, invalid year")?,
             input[1].parse::<i8>().context("Failed to parse date, invalid month")?,
             input[0].parse::<i8>().context("Failed to parse date, invalid day")?,
-        ).context("Failed to parse date, invalid date format, expected dd/mm/yyyy, or with '/' alternatives such as '.'")?))
+        ).context("Failed to parse date, invalid date format, expected dd/mm/yyyy, or with '/' alternatives such as '.', '_', or '-'")?))
+    }
+}
+
+impl TryFrom<&String> for SyrDate {
+    type Error = anyhow::Error;
+    fn try_from(value: &String) -> Result<Self, Self::Error> {
+        Self::try_from(value.as_str())
     }
 }
 
@@ -94,17 +109,13 @@ impl<'a> Visitor<'a> for SyrDateVisitor {
     where
         E: serde::de::Error,
     {
-        SyrDate::try_from(v).or(Err(E::custom(
-            "failed to parse date, invalid date format, expected dd/mm/yyyy",
-        )))
+        SyrDate::try_from(v).or(Err(E::custom("Failed to parse date, invalid date format")))
     }
 
     fn visit_string<E>(self, v: String) -> Result<Self::Value, E>
     where
         E: serde::de::Error,
     {
-        SyrDate::try_from(v.as_str()).or(Err(E::custom(
-            "ffailed to parse date, invalid date format, expected dd/mm/yyyy",
-        )))
+        SyrDate::try_from(&v).or(Err(E::custom("Failed to parse date, invalid date format")))
     }
 }

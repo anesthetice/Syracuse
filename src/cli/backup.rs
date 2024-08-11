@@ -15,7 +15,7 @@ pub(super) fn backup_subcommand() -> Command {
 pub fn process_backup_subcommand(
     arg_matches: &ArgMatches,
     entries: &Entries,
-    today_datetime: &OffsetDateTime,
+    today_datetime: &DateTime,
 ) -> anyhow::Result<ProcessOutput> {
     let Some(arg_matches) = arg_matches.subcommand_matches("backup") else {
         return Ok(PO::Continue(None));
