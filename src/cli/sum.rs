@@ -1,6 +1,8 @@
+use crate::data::syrtime::syrspan::SyrSpan;
+
 use super::*;
 
-pub(super) fn sum_subcommand() -> Command {
+pub(super) fn subcommand() -> Command {
     Command::new("sum")
         .aliases(["total", "tally"])
         .about("Sums up the time tracked by entries")
@@ -69,15 +71,7 @@ pub(super) fn sum_subcommand() -> Command {
         )
 }
 
-pub fn process_sum_subcommand(
-    arg_matches: &ArgMatches,
-    entries: &Entries,
-    today: &SyrDate,
-) -> anyhow::Result<ProcessOutput> {
-    let Some(arg_matches) = arg_matches.subcommand_matches("sum") else {
-        return Ok(PO::Continue(None));
-    };
-
+pub fn process(arg_matches: &ArgMatches, entries: &Entries, today: &SyrDate) -> anyhow::Result<()> {
     let entries: Vec<&Entry> = match arg_matches.get_many::<String>("exclude") {
         Some(entry_match) => {
             let excluded: Vec<Entry> = entry_match
@@ -118,62 +112,47 @@ pub fn process_sum_subcommand(
             println!("{}", format!("{:.3}", total_hours).bold());
         }
 
-        return Ok(PO::Terminate);
+        return Ok(());
     }
 
-    let mut dates: Vec<SyrDate> = Vec::new();
-
-    // days-back + specified end-date or not
-    if let Some(num) = arg_matches.get_one::<usize>("days-back") {
-        // starts off as end date but will become the start date therefore it's already called start date
-        let mut start_date = match arg_matches.get_one::<String>("end-date") {
-            Some(string) => SyrDate::try_from(string.as_str()).unwrap_or(*today),
-            None => *today,
-        };
-        dates.push(start_date);
-        for _ in 0..*num {
-            start_date = start_date
-                .previous_day()
-                .ok_or(crate::error::Error {})
-                .context("invalid number of days back, this is highly unlikely")?
-                .into();
-            dates.push(start_date);
+    let dates: Vec<SyrDate> = {
+        // days-back + specified end-date or not
+        if let Some(num) = arg_matches.get_one::<usize>("days-back") {
+            let mut end_date = match arg_matches.get_one::<String>("end-date") {
+                Some(string) => SyrDate::try_from(string).unwrap_or(*today),
+                None => *today,
+            };
+            SyrSpan::from_end_and_days_back(*end_date, *num as i64)
+                .into_iter()
+                .collect()
         }
-    }
-    // start-date + specified end-date or not
-    else {
-        let Some(start_date) = arg_matches.get_one::<String>("start-date") else {
-            Err(error::Error {}).context("failed to parse starting date as string")?
-        };
-        let mut start_date = SyrDate::try_from(start_date.as_str())?;
+        // start-date + specified end-date or not
+        else if let Some(start_date) = arg_matches.get_one::<String>("start-date") {
+            let mut start_date = SyrDate::try_from(start_date.as_str())?;
 
-        let end_date = match arg_matches.get_one::<String>("end-date") {
-            Some(string) => SyrDate::try_from(string.as_str()).unwrap_or(*today),
-            None => *today,
-        };
+            let end_date = match arg_matches.get_one::<String>("end-date") {
+                Some(string) => SyrDate::try_from(string.as_str()).unwrap_or(*today),
+                None => *today,
+            };
 
-        if start_date > end_date {
-            Err(error::Error {}).context("starting date is larger than ending date")?
+            if start_date > end_date {
+                Err(anyhow!("Start date is more recent than end date"))?
+            }
+            SyrSpan::from_start_and_end(*start_date, *end_date)
+                .into_iter()
+                .collect()
+        } else {
+            return Err(anyhow!("Invalid subcommand usage"));
         }
-
-        dates.push(start_date);
-        while start_date < end_date {
-            start_date = start_date
-                .next_day()
-                .ok_or(crate::error::Error{})
-                .context("could not advance date while trying to reach specified end date, this is in theory impossible")?
-                .into();
-            dates.push(start_date);
-        }
-    }
+    };
 
     let mut total_hours: f64 = 0.0;
     for entry in entries.iter() {
         let hours = dates
             .iter()
             .map(|date| entry.get_block_duration(date))
-            .filter(|x| *x != 0)
-            .fold(0_f64, |acc, x| acc + x as f64 / 3_600_000_000_000.0_f64);
+            .filter(|x| *x != 0.0)
+            .fold(0_f64, |acc, x| acc + x as f64 / 3600.0);
         total_hours += hours;
         if arg_matches.get_flag("explicit") && hours != 0.0 {
             println!("{:<15} :   {:.3}", entry.get_name(), hours)
@@ -190,5 +169,5 @@ pub fn process_sum_subcommand(
         println!("{}", format!("{:.3}", total_hours).bold());
     }
 
-    Ok(PO::Terminate)
+    Ok(())
 }
