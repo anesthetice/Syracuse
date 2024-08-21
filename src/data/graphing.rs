@@ -3,11 +3,9 @@ use super::{
     syrtime::{syrdate::SyrDate, syrspan::SyrSpan},
 };
 use crate::config::Config;
-use anyhow::Context;
 use itertools::Itertools;
 use plotters::prelude::*;
 use std::path::PathBuf;
-use tracing::{debug, instrument, warn};
 
 trait GraphMethods {
     fn get_points(&self, dates: &[SyrDate]) -> Vec<(f64, f64)>;
@@ -31,10 +29,7 @@ impl GraphMethods for Entry {
     }
 }
 
-#[instrument(skip(entries))]
 pub fn graph(entries: Entries, date_span: SyrSpan) -> anyhow::Result<()> {
-    debug!("Loading and processing assets...");
-
     let filename = format!(
         "Graph_from_{}_to_{}.png",
         SyrDate::from(date_span.start).to_string_with_formatting('-'),
@@ -88,7 +83,7 @@ pub fn graph(entries: Entries, date_span: SyrSpan) -> anyhow::Result<()> {
         .unwrap_or(6.0)
         .ceil();
     if max_y == 0.0 {
-        warn!("No entries found within the given date span, returning early");
+        log::warn!("No entries found within the given date span, returning early");
         return Ok(());
     }
 
@@ -104,13 +99,11 @@ pub fn graph(entries: Entries, date_span: SyrSpan) -> anyhow::Result<()> {
             if path.is_dir() {
                 path.join(filename)
             } else {
-                warn!("Invalid directory, defaulting to current directory");
+                log::warn!("Invalid directory, defaulting to current directory");
                 PathBuf::from(filename)
             }
         }
     };
-
-    debug!("Drawing...");
 
     let root = BitMapBackend::new(&filepath, (image_width, image_height)).into_drawing_area();
     root.fill::<RGBColor>(&bg_rgb)?;
@@ -217,7 +210,7 @@ pub fn graph(entries: Entries, date_span: SyrSpan) -> anyhow::Result<()> {
     }
 
     if !superpoints.is_empty() {
-        warn!("Failed to graph every single entry, consider adding more colors in the config or tightening the date span");
+        log::warn!("Failed to graph every single entry, consider adding more colors in the config or narrowing the date span");
     }
 
     ctx.configure_series_labels()
@@ -227,7 +220,6 @@ pub fn graph(entries: Entries, date_span: SyrSpan) -> anyhow::Result<()> {
         .label_font(("sans-serif", 15.0).with_color(fg_rgb))
         .draw()?;
 
-    debug!("Cleaning up...");
     Ok(root.present()?)
 }
 
@@ -238,7 +230,6 @@ fn rgb_translate(rgb: (u8, u8, u8)) -> RGBColor {
 pub mod interpolation {
     use itertools::Itertools;
     use serde::{Deserialize, Serialize};
-    use tracing::warn;
 
     use crate::config::Config;
 
@@ -275,7 +266,7 @@ pub mod interpolation {
 
     pub(super) fn makima(points: Vec<(f64, f64)>) -> Vec<(f64, f64)> {
         if points.len() < 5 {
-            warn!(
+            log::warn!(
                 "A minimum of 5 points are required to use m-Akima interpolation, got {}",
                 points.len()
             );

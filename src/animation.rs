@@ -1,7 +1,5 @@
-use crossterm::style::Stylize;
-use std::io::{self, Write};
-
 use crate::warn;
+use std::io::{self, Write};
 
 pub type AnimationBuilder = Vec<(String, String)>;
 

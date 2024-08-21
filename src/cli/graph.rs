@@ -51,7 +51,7 @@ pub fn process_graph_subcommand(
             None => *today,
         };
 
-        let date_span = SyrSpan::from_end_and_days_back(*end_date, *num as i64);
+        let date_span = SyrSpan::from_end_and_days_back(end_date, *num as i64);
         graphing::graph(entries, date_span)?;
         Ok(PO::Terminate)
     }

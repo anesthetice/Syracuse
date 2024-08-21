@@ -1,14 +1,14 @@
+use crate::{
+    animation::AnimationBuilder, data::graphing::interpolation::InterpolationMethod, warn,
+};
 use serde::{Deserialize, Serialize};
 use std::{
     io::{Read, Write},
     sync::OnceLock,
 };
 
-use crate::{
-    animation::AnimationBuilder, data::graphing::interpolation::InterpolationMethod, warn,
-};
-
 pub static CONFIG: OnceLock<Config> = OnceLock::new();
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Config {
     // what set of characters separate the names of an entry stored as a file

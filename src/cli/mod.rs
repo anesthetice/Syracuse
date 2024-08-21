@@ -18,7 +18,6 @@ use crate::data::syrtime::blocs::sec_to_pretty_string;
 use jiff::civil::Time;
 use jiff::civil::DateTime;
 use jiff::Span;
-use tracing::{debug, info, warn, error};
 mod add;
 mod backup;
 mod graph;
@@ -78,25 +77,3 @@ pub fn cli(entries: Entries, today: SyrDate, dt: DateTime) -> anyhow::Result<()>
         None => Ok(()),
     }
 }
-
-// might not be the prettiest way of doing things
-// but it's not so bad, and it lets me keep main.rs pretty clean
-pub enum ProcessOutput {
-    Continue(Option<Entries>),
-    Terminate,
-}
-
-use ProcessOutput as PO;
-
-pub use add::process_add_subcommand;
-pub use backup::process_backup_subcommand;
-pub use graph::process_graph_subcommand;
-pub use list::process_list_subcommand;
-pub use prune::process_prune_subcommand;
-pub use reindex::process_reindex_subcommand;
-pub use remove::process_remove_subcommand;
-pub use start::process_start_subcommand;
-pub use sum::process_sum_subcommand;
-pub use today::process_today_subcommand;
-pub use unindex::process_unindex_subcommand;
-pub use update::process_update_subcommand;
