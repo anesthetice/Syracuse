@@ -1,5 +1,3 @@
-use crate::data::syrtime::syrspan::SyrSpan;
-
 use super::*;
 
 pub(super) fn subcommand() -> Command {
@@ -95,7 +93,7 @@ pub fn process(arg_matches: &ArgMatches, entries: &Entries, today: &SyrDate) -> 
     if arg_matches.get_flag("all") {
         let mut total_hours: f64 = 0.0;
         for entry in entries.iter() {
-            let hours = entry.get_block_duration_total_as_hours();
+            let hours = entry.get_bloc_duration_total_as_hours();
             total_hours += hours;
             if arg_matches.get_flag("explicit") && hours != 0.0 {
                 println!("{:<15} :   {:.3}", entry.get_name(), hours)
@@ -118,7 +116,7 @@ pub fn process(arg_matches: &ArgMatches, entries: &Entries, today: &SyrDate) -> 
     let dates: Vec<SyrDate> = {
         // days-back + specified end-date or not
         if let Some(num) = arg_matches.get_one::<usize>("days-back") {
-            let mut end_date = match arg_matches.get_one::<String>("end-date") {
+            let end_date = match arg_matches.get_one::<String>("end-date") {
                 Some(string) => SyrDate::try_from(string).unwrap_or(*today),
                 None => *today,
             };
@@ -128,7 +126,7 @@ pub fn process(arg_matches: &ArgMatches, entries: &Entries, today: &SyrDate) -> 
         }
         // start-date + specified end-date or not
         else if let Some(start_date) = arg_matches.get_one::<String>("start-date") {
-            let mut start_date = SyrDate::try_from(start_date.as_str())?;
+            let start_date = SyrDate::try_from(start_date.as_str())?;
 
             let end_date = match arg_matches.get_one::<String>("end-date") {
                 Some(string) => SyrDate::try_from(string.as_str()).unwrap_or(*today),
@@ -150,7 +148,7 @@ pub fn process(arg_matches: &ArgMatches, entries: &Entries, today: &SyrDate) -> 
     for entry in entries.iter() {
         let hours = dates
             .iter()
-            .map(|date| entry.get_block_duration(date))
+            .map(|date| entry.get_bloc_duration(date))
             .filter(|x| *x != 0.0)
             .fold(0_f64, |acc, x| acc + x as f64 / 3600.0);
         total_hours += hours;

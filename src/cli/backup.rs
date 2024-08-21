@@ -30,7 +30,7 @@ pub fn process(arg_matches: &ArgMatches, entries: &Entries, dt: &DateTime) -> an
     .join(folder);
 
     std::fs::create_dir(&path).context("Failed to create backup directory")?;
-    info!("Backing up to: '{}'", &path.display());
+    log::info!("Backing up to: '{}'", &path.display());
     entries.backup(path);
     Ok(())
 }

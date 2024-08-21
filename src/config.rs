@@ -1,6 +1,4 @@
-use crate::{
-    animation::AnimationBuilder, data::graphing::interpolation::InterpolationMethod, warn,
-};
+use crate::{animation::AnimationBuilder, data::graphing::interpolation::InterpolationMethod};
 use serde::{Deserialize, Serialize};
 use std::{
     io::{Read, Write},
@@ -119,22 +117,19 @@ impl Config {
         match Self::from_file(filepath) {
             Ok(config) => config,
             Err(error) => {
-                warn!(
-                    "failed to load configuration from file, caused by: '{}'",
-                    error
-                );
+                log::warn!("Failed to load configuration from file: '{}'", error);
                 let config = Self::default();
                 let Ok(downcast_error) = error.downcast::<std::io::Error>() else {
                     return config;
                 };
                 if downcast_error.kind() == std::io::ErrorKind::NotFound {
                     match config.to_file(filepath) {
-                        Ok(()) => warn!(
-                            "created default configuration file, at: '{}'",
+                        Ok(()) => log::warn!(
+                            "Created default configuration file, at: '{}'",
                             filepath.display()
                         ),
-                        Err(error) => warn!(
-                            "failed to create default configuration file, at: '{}', caused by: '{}'",
+                        Err(error) => log::warn!(
+                            "Failed to create default configuration file, at: '{}', caused by: '{}'",
                             filepath.display(),
                             error
                         ),

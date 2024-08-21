@@ -38,7 +38,7 @@ pub fn process(arg_matches: &ArgMatches, entries: &Entries, today: &SyrDate) -> 
         if arg_matches.get_flag("yesterday") {
             date = date.yesterday()?;
         } else if let Some(val) = arg_matches.get_one::<usize>("previous") {
-            date = date.saturating_sub(Span::new().days(-(*val) as i64));
+            date = date.saturating_sub(Span::new().days(i64::try_from(*val)?));
         }
         date.into()
     };
@@ -48,7 +48,7 @@ pub fn process(arg_matches: &ArgMatches, entries: &Entries, today: &SyrDate) -> 
             entries
                 .iter()
                 .map(|entry| {
-                    let duration = entry.get_block_duration(&date);
+                    let duration = entry.get_bloc_duration(&date);
                     // 15 seems reasonable, I could check the length of every entry's name and get a better estimation
                     // but even that would not be perfect, I would have to count the valid grapheme clusters which adds a lot of complexity
                     // to what I itend as simple padding
@@ -65,7 +65,7 @@ pub fn process(arg_matches: &ArgMatches, entries: &Entries, today: &SyrDate) -> 
         } else {
             entries
                 .iter()
-                .map(|entry| entry.get_block_duration(&date))
+                .map(|entry| entry.get_bloc_duration(&date))
                 .sum()
         }
     };

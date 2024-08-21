@@ -54,10 +54,10 @@ pub fn process(arg_matches: &ArgMatches, entries: &Entries, today: &SyrDate) -> 
             if let Err(error) = entry.save() {
                 file_save_error_counter += 1;
                 if file_save_error_counter > 2 {
-                    error!("Maximum number of failed autosaves reached, exiting...");
+                    log::error!("Maximum number of failed autosaves reached, exiting...");
                     return Err(error);
                 } else {
-                    warn!("Failed to autosave progress: '{}'", error);
+                    log::warn!("Failed to autosave progress: '{}'", error);
                 }
             }
             autosave_instant = instant;

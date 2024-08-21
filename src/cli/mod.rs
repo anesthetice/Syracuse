@@ -1,23 +1,22 @@
+use crate::data::syrtime::blocs::sec_to_pretty_string;
+use crate::{
+    animation, config,
+    data::{
+        internal::{Entries, Entry, IndexOptions},
+        syrtime::syrdate::SyrDate,
+        syrtime::syrspan::SyrSpan,
+    },
+    utils::{enter_clean_input_mode, exit_clean_input_mode},
+};
 use anyhow::{anyhow, Context};
 use clap::{command, value_parser, Arg, ArgAction, ArgGroup, ArgMatches, Command};
 use crossterm::{event, style::Stylize};
+use jiff::civil::DateTime;
+use jiff::Span;
 use std::{
     path::PathBuf,
     time::{Duration, Instant},
 };
-use crate::{
-    animation, config,
-    data::{
-        graphing,
-        internal::{Entries, Entry, IndexOptions},
-        syrtime::syrdate::SyrDate,
-    },
-    utils::{enter_clean_input_mode, exit_clean_input_mode},
-};
-use crate::data::syrtime::blocs::sec_to_pretty_string;
-use jiff::civil::Time;
-use jiff::civil::DateTime;
-use jiff::Span;
 mod add;
 mod backup;
 mod graph;
@@ -53,8 +52,8 @@ pub fn cli(entries: Entries, today: SyrDate, dt: DateTime) -> anyhow::Result<()>
             unindex::subcommand(),
             reindex::subcommand(),
             sum::subcommand(),
-            prune_subcommand(),
-            graph_subcommand(),
+            prune::subcommand(),
+            graph::subcommand(),
         ]);
 
     let arg_matches = command.get_matches();
@@ -70,10 +69,8 @@ pub fn cli(entries: Entries, today: SyrDate, dt: DateTime) -> anyhow::Result<()>
         Some(("unindex", arg_matches)) => unindex::process(arg_matches, &entries),
         Some(("reindex", arg_matches)) => reindex::process(arg_matches, &entries),
         Some(("sum", arg_matches)) => sum::process(arg_matches, &entries, &today),
-        Some(("", arg_matches)) => ,
-        Some(("", arg_matches)) => ,
-        Some(("", arg_matches)) => ,
-        Some(_) => Ok(()),
-        None => Ok(()),
+        Some(("prune", arg_matches)) => prune::process(arg_matches, entries),
+        Some(("graph", arg_matches)) => graph::process(arg_matches, entries, &today),
+        _ => Ok(()),
     }
 }

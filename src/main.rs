@@ -9,16 +9,15 @@ mod utils;
 use anyhow::Context;
 use directories::ProjectDirs;
 
-use cli::{
-    process_add_subcommand, process_backup_subcommand, process_graph_subcommand,
-    process_list_subcommand, process_prune_subcommand, process_reindex_subcommand,
-    process_remove_subcommand, process_start_subcommand, process_sum_subcommand,
-    process_today_subcommand, process_unindex_subcommand, process_update_subcommand,
-    ProcessOutput as PO,
-};
 use data::{internal::Entries, syrtime::syrdate::SyrDate};
 
 fn main() -> anyhow::Result<()> {
+    env_logger::builder()
+        .filter_level(log::LevelFilter::Info)
+        .parse_default_env()
+        .format_timestamp(None)
+        .init();
+
     log::debug!("Gathering and checking required directories");
     let dirs =
         ProjectDirs::from("", "", "syracuse").context("Failed to get project directories")?;

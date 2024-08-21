@@ -76,13 +76,13 @@ pub fn process(arg_matches: &ArgMatches, entries: &Entries, today: &SyrDate) -> 
     let hour_diff: f64 = *arg_matches.get_one::<f64>("hour").unwrap_or(&0.0);
     let minute_diff: f64 = *arg_matches.get_one::<f64>("minute").unwrap_or(&0.0);
     let second_diff: f64 = *arg_matches.get_one::<f64>("second").unwrap_or(&0.0);
-    let total_diff: f64 = hour_diff * 3600.0 + minute_diff * 60.0 + second_diff
+    let total_diff: f64 = hour_diff * 3600.0 + minute_diff * 60.0 + second_diff;
 
     if ["add", "plus", "incr", "increase"]
         .iter()
         .any(|s| *s == operation)
     {
-        let tmp = sec_to_pretty_string(entry.get_block_duration(&date));
+        let tmp = sec_to_pretty_string(entry.get_bloc_duration(&date));
         entry.increase_bloc_duration(&date, total_diff);
         entry.save()?;
         println!(
@@ -90,13 +90,13 @@ pub fn process(arg_matches: &ArgMatches, entries: &Entries, today: &SyrDate) -> 
             &date,
             &tmp,
             "――>".green(),
-            sec_to_pretty_string(entry.get_block_duration(&date))
+            sec_to_pretty_string(entry.get_bloc_duration(&date))
         )
     } else if ["sub", "rm", "rem", "remove", "minus", "decr", "decrease"]
         .iter()
         .any(|s| *s == operation)
     {
-        let tmp = sec_to_pretty_string(entry.get_block_duration(&date));
+        let tmp = sec_to_pretty_string(entry.get_bloc_duration(&date));
         entry.decrease_bloc_duration(&date, total_diff);
         entry.save()?;
         println!(
@@ -104,7 +104,7 @@ pub fn process(arg_matches: &ArgMatches, entries: &Entries, today: &SyrDate) -> 
             &date,
             &tmp,
             "――>".red(),
-            sec_to_pretty_string(entry.get_block_duration(&date))
+            sec_to_pretty_string(entry.get_bloc_duration(&date))
         )
     } else {
         return Err(anyhow!("Unkown operation"));

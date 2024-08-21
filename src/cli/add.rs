@@ -33,7 +33,7 @@ pub fn process(arg_matches: &ArgMatches, entries: &Entries) -> anyhow::Result<()
 
     for entry in entries.iter() {
         for name in names.iter() {
-            if !entry.check_new_entry_name_validity(name) {
+            if !entry.is_new_entry_name_valid(name) {
                 Err(anyhow!(
                     "Failed to add new entry, '{name}' conflicts with an existing entry: '{entry}'"
                 ))?
