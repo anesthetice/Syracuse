@@ -18,9 +18,9 @@ impl GraphMethods for Entry {
             .enumerate()
             .map(|(idx, date)| {
                 match self.blocs.get(date) {
-                    Some(nanos) => {
+                    Some(secs) => {
                         // idx + 1 since we pad our graph and 0 is not used
-                        ((idx + 1) as f64, *nanos as f64 / 36e11)
+                        ((idx + 1) as f64, *secs / 3600.0)
                     }
                     None => ((idx + 1) as f64, 0_f64),
                 }

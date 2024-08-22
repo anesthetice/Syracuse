@@ -35,18 +35,17 @@ impl std::fmt::Debug for SyrSpan {
 }
 
 pub struct SyrSpanIterator {
-    start: Date,
+    pointer: Date,
     end: Date,
-    curr: Date,
 }
 
 impl Iterator for SyrSpanIterator {
     type Item = SyrDate;
 
     fn next(&mut self) -> Option<Self::Item> {
-        if self.curr < self.end {
-            self.curr = self.curr.tomorrow().unwrap();
-            Some(self.curr.into())
+        if self.pointer < self.end {
+            self.pointer = self.pointer.tomorrow().unwrap();
+            Some(self.pointer.into())
         } else {
             None
         }
@@ -59,9 +58,8 @@ impl IntoIterator for SyrSpan {
 
     fn into_iter(self) -> Self::IntoIter {
         Self::IntoIter {
-            start: self.start,
+            pointer: self.start,
             end: self.end,
-            curr: self.start,
         }
     }
 }
