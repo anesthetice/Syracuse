@@ -1,14 +1,11 @@
-use anyhow::Context;
-use crossterm::style::Stylize;
+use super::{
+    internal::{Entries, Entry},
+    syrtime::{syrdate::SyrDate, syrspan::SyrSpan},
+};
+use crate::config::Config;
 use itertools::Itertools;
 use plotters::prelude::*;
 use std::path::PathBuf;
-
-use super::{
-    internal::{Entries, Entry},
-    syrtime::SyrDate,
-};
-use crate::{config::Config, info, warn};
 
 trait GraphMethods {
     fn get_points(&self, dates: &[SyrDate]) -> Vec<(f64, f64)>;
@@ -21,9 +18,9 @@ impl GraphMethods for Entry {
             .enumerate()
             .map(|(idx, date)| {
                 match self.blocs.get(date) {
-                    Some(nanos) => {
+                    Some(secs) => {
                         // idx + 1 since we pad our graph and 0 is not used
-                        ((idx + 1) as f64, *nanos as f64 / 36e11)
+                        ((idx + 1) as f64, *secs / 3600.0)
                     }
                     None => ((idx + 1) as f64, 0_f64),
                 }
@@ -32,8 +29,13 @@ impl GraphMethods for Entry {
     }
 }
 
-pub fn graph(entries: Entries, start_date: SyrDate, end_date: SyrDate) -> anyhow::Result<()> {
-    info!("initializing...");
+pub fn graph(entries: Entries, date_span: SyrSpan) -> anyhow::Result<()> {
+    let filename = format!(
+        "Graph_from_{}_to_{}.png",
+        SyrDate::from(date_span.start).to_string_with_formatting('-'),
+        SyrDate::from(date_span.end).to_string_with_formatting('-')
+    );
+
     let bg_rgb = rgb_translate(Config::get().graph_background_rgb);
     let fg_rgb = rgb_translate(Config::get().graph_foreground_rgb);
     let coarse_grid_rgb = rgb_translate(Config::get().graph_coarse_grid_rgb);
@@ -50,15 +52,17 @@ pub fn graph(entries: Entries, start_date: SyrDate, end_date: SyrDate) -> anyhow
     let mut mcw_idx: usize = 0;
 
     if marker_color_wheel.is_empty() {
-        Err(crate::error::Error {})
-            .context("please provide at least one color in graph_marker_colors")?;
+        Err(anyhow::anyhow!(
+            "At least one color required in graph_marker_colors"
+        ))?;
     }
 
-    let dates = SyrDate::expand_from_bounds(start_date, end_date);
+    let dates = date_span.into_iter().collect_vec();
 
     if dates.len() < 3 {
-        Err(crate::error::Error {})
-            .context("at minimum, a span of three days is required to build a graph")?
+        Err(anyhow::anyhow!(
+            "At minimum, a span of three days is required to build a graph"
+        ))?
     }
 
     let mut superpoints: Vec<(String, Vec<(f64, f64)>)> = entries
@@ -79,7 +83,7 @@ pub fn graph(entries: Entries, start_date: SyrDate, end_date: SyrDate) -> anyhow
         .unwrap_or(6.0)
         .ceil();
     if max_y == 0.0 {
-        warn!("no entries found within the given date range, returning early");
+        log::warn!("No entries found within the given date span, returning early");
         return Ok(());
     }
 
@@ -89,19 +93,18 @@ pub fn graph(entries: Entries, start_date: SyrDate, end_date: SyrDate) -> anyhow
     let filepath = {
         let path = Config::get().graph_output_dir.clone();
         if path.is_empty() {
-            PathBuf::from("graph.png")
+            PathBuf::from(filename)
         } else {
             let path = PathBuf::from(path);
             if path.is_dir() {
-                path.join("graph.png")
+                path.join(filename)
             } else {
-                warn!("invalid directory, defaulting to current directory");
-                PathBuf::from("graph.png")
+                log::warn!("Invalid directory, defaulting to current directory");
+                PathBuf::from(filename)
             }
         }
     };
 
-    info!("drawing...");
     let root = BitMapBackend::new(&filepath, (image_width, image_height)).into_drawing_area();
     root.fill::<RGBColor>(&bg_rgb)?;
 
@@ -207,7 +210,7 @@ pub fn graph(entries: Entries, start_date: SyrDate, end_date: SyrDate) -> anyhow
     }
 
     if !superpoints.is_empty() {
-        warn!("failed to graph every single entry, consider adding more colors in the config or tightening the date span");
+        log::warn!("Failed to graph every single entry, consider adding more colors in the config or narrowing the date span");
     }
 
     ctx.configure_series_labels()
@@ -217,7 +220,6 @@ pub fn graph(entries: Entries, start_date: SyrDate, end_date: SyrDate) -> anyhow
         .label_font(("sans-serif", 15.0).with_color(fg_rgb))
         .draw()?;
 
-    info!("saving...");
     Ok(root.present()?)
 }
 
@@ -226,11 +228,10 @@ fn rgb_translate(rgb: (u8, u8, u8)) -> RGBColor {
 }
 
 pub mod interpolation {
-    use crossterm::style::Stylize;
     use itertools::Itertools;
     use serde::{Deserialize, Serialize};
 
-    use crate::{config::Config, warn};
+    use crate::config::Config;
 
     #[derive(Debug, Clone, Serialize, Deserialize)]
     pub(crate) enum InterpolationMethod {
@@ -265,7 +266,10 @@ pub mod interpolation {
 
     pub(super) fn makima(points: Vec<(f64, f64)>) -> Vec<(f64, f64)> {
         if points.len() < 5 {
-            warn!("failed to interpolate data using makima, defaulting to linear, {} out of the 5 required points met", points.len());
+            log::warn!(
+                "A minimum of 5 points are required to use m-Akima interpolation, got {}",
+                points.len()
+            );
             return linear(points);
         }
         let n = points.len() - 1;

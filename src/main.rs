@@ -4,37 +4,48 @@ mod cli;
 mod config;
 mod data;
 mod dirs;
-mod error;
 mod utils;
 
 use anyhow::Context;
-use crossterm::style::Stylize;
+use data::{internal::Entries, syrtime::syrdate::SyrDate};
 use directories::ProjectDirs;
 
-use cli::{
-    process_add_subcommand, process_backup_subcommand, process_graph_subcommand,
-    process_list_subcommand, process_prune_subcommand, process_reindex_subcommand,
-    process_remove_subcommand, process_start_subcommand, process_sum_subcommand,
-    process_today_subcommand, process_unindex_subcommand, process_update_subcommand,
-    ProcessOutput as PO,
-};
-use data::{internal::Entries, syrtime::SyrDate};
 fn main() -> anyhow::Result<()> {
-    // start of initialization
+    env_logger::builder()
+        .filter_level(log::LevelFilter::Info)
+        .parse_default_env()
+        .format_timestamp(None)
+        .init();
+
+    log::debug!("Gathering and checking required directories");
     let dirs =
-        ProjectDirs::from("", "", "syracuse").context("failed to get project directories")?;
-    if !dirs.config_dir().exists() {
-        std::fs::create_dir_all(dirs.config_dir())
-            .context("failed to create a config directory for the application")?;
-        warn!("created config directory at: '{}'", dirs.config_dir().display())
-    }
-    if !dirs.data_dir().exists() {
-        std::fs::create_dir_all(dirs.data_dir())
-            .context("failed to create a data directory for the application")?;
-        warn!("created data directory at: '{}'", dirs.data_dir().display())
-    }
+        ProjectDirs::from("", "", "syracuse").context("Failed to get project directories")?;
+
+    let dirs_check = || -> anyhow::Result<()> {
+        let conf_dir = dirs.config_dir();
+        if !conf_dir.exists() {
+            log::warn!("Missing config directory");
+            std::fs::create_dir_all(conf_dir).context(format!(
+                "Failed to create the config directory at: '{}'",
+                conf_dir.display()
+            ))?;
+            log::info!("Created the config directory at: '{}'", conf_dir.display())
+        }
+        let data_dir = dirs.data_dir();
+        if !data_dir.exists() {
+            log::warn!("Missing data directory");
+            std::fs::create_dir_all(data_dir).context(format!(
+                "Failed to create the data directory at: '{}'",
+                data_dir.display(),
+            ))?;
+            log::info!("Created the data directory at: '{}'", data_dir.display())
+        }
+        Ok(())
+    };
+    dirs_check()?;
 
     // this should never fail, unwrapping is fine
+    log::debug!("Locking settings...");
     config::CONFIG
         .set(config::Config::load(
             &dirs.config_dir().join("syracuse.conf"),
@@ -42,98 +53,23 @@ fn main() -> anyhow::Result<()> {
         .unwrap();
     dirs::DIRS.set(dirs).unwrap();
 
-    let datetime = {
-        let lo = config::Config::get().local_offset;
-        match time::UtcOffset::from_hms(lo[0], lo[1], lo[2]) {
-            Ok(offset) => time::OffsetDateTime::now_utc().to_offset(offset),
-            Err(err) => {
-                warn!("failed to create UtcOffset with the provided local time offset: '{err}'");
-                time::OffsetDateTime::now_utc()
-            }
-        }
-    };
+    // not the biggest fan of this to be honest, I'd rather have access to the warning
+    let datetime = jiff::Zoned::now();
+    log::debug!("Local datetime: {}", datetime);
+    let datetime = datetime.datetime();
+
     let time = datetime.time();
     let date: SyrDate = {
         if time.hour() < config::Config::get().night_owl_hour_extension {
-            datetime
-                .date()
-                .previous_day()
-                .unwrap_or(datetime.date())
-                .into()
+            datetime.date().yesterday()?.into()
         } else {
             datetime.date().into()
         }
     };
 
     let entries = Entries::load()?;
-    // end of initialization
 
-    let command = cli::cli();
-    let arg_matches = command.get_matches();
-    let _ = config::VERBOSE
-        .set(arg_matches.get_flag("verbose"))
-        .map_err(|err| warn!("failed to enable verbose output: '{err}'"));
-    println!();
-
-    match process_add_subcommand(&arg_matches, &entries)? {
-        PO::Continue(_) => (),
-        PO::Terminate => return Ok(()),
-    }
-
-    match process_list_subcommand(&arg_matches, &entries)? {
-        PO::Continue(_) => (),
-        PO::Terminate => return Ok(()),
-    }
-
-    match process_remove_subcommand(&arg_matches, &entries)? {
-        PO::Continue(_) => (),
-        PO::Terminate => return Ok(()),
-    }
-
-    match process_start_subcommand(&arg_matches, &entries, &date, &time)? {
-        PO::Continue(_) => (),
-        PO::Terminate => return Ok(()),
-    }
-
-    match process_update_subcommand(&arg_matches, &entries, &date)? {
-        PO::Continue(_) => (),
-        PO::Terminate => return Ok(()),
-    }
-
-    match process_today_subcommand(&arg_matches, &entries, &date)? {
-        PO::Continue(_) => (),
-        PO::Terminate => return Ok(()),
-    }
-
-    match process_backup_subcommand(&arg_matches, &entries, &datetime)? {
-        PO::Continue(_) => (),
-        PO::Terminate => return Ok(()),
-    }
-
-    match process_unindex_subcommand(&arg_matches, &entries)? {
-        PO::Continue(_) => (),
-        PO::Terminate => return Ok(()),
-    }
-
-    match process_reindex_subcommand(&arg_matches, &entries)? {
-        PO::Continue(_) => (),
-        PO::Terminate => return Ok(()),
-    }
-
-    match process_sum_subcommand(&arg_matches, &entries, &date)? {
-        PO::Continue(_) => (),
-        PO::Terminate => return Ok(()),
-    }
-
-    let entries = match process_prune_subcommand(&arg_matches, entries)? {
-        PO::Continue(entries) => entries.unwrap(),
-        PO::Terminate => return Ok(()),
-    };
-
-    match process_graph_subcommand(&arg_matches, entries, &date)? {
-        PO::Continue(_) => (),
-        PO::Terminate => return Ok(()),
-    }
+    cli::cli(entries, date, datetime)?;
 
     Ok(())
 }

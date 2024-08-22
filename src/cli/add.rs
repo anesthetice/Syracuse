@@ -1,6 +1,6 @@
 use super::*;
 
-pub(super) fn add_subcommand() -> Command {
+pub(super) fn subcommand() -> Command {
     Command::new("add")
         .alias("new")
         .about("Add a new entry to syracuse")
@@ -15,35 +15,31 @@ pub(super) fn add_subcommand() -> Command {
             )
 }
 
-pub fn process_add_subcommand(
-    arg_matches: &ArgMatches,
-    entries: &Entries,
-) -> anyhow::Result<ProcessOutput> {
-    let Some(arg_matches) = arg_matches.subcommand_matches("add") else {
-        return Ok(PO::Continue(None));
-    };
-    let Some(entry_match) = arg_matches.get_many::<String>("entry") else {
-        Err(error::Error {}).context("failed to parse entry as string")?
-    };
-    let mut names: Vec<String> = entry_match.map(|s| s.to_uppercase()).collect();
+pub fn process(arg_matches: &ArgMatches, entries: &Entries) -> anyhow::Result<()> {
+    let names = arg_matches
+        .get_many::<String>("entry")
+        .ok_or(anyhow!("Failed to parse entry/entries to string/strings"))?;
+    let mut names: Vec<String> = names.map(|s| s.to_uppercase()).collect();
 
     let separator_characters = config::Config::get().entry_file_name_separtor.as_str();
+
     for name in names.iter() {
         if name.contains(separator_characters) {
-            Err(error::Error{})
-                    .with_context(|| format!("failed to add new entry, the name and or aliases provided conflict with the separator characters: '{}'", separator_characters))?
+            Err(anyhow::anyhow!(
+                "Failed to add new entry, '{name}' conflicts with the separator characters: '{separator_characters}'",
+            ))?;
         }
     }
 
     for entry in entries.iter() {
         for name in names.iter() {
-            if !entry.check_new_entry_name_validity(name) {
-                Err(error::Error{})
-                    .with_context(|| format!("failed to add new entry, the name and or aliases provided conflict with an existing entry: '{}'", entry))?
+            if !entry.is_new_entry_name_valid(name) {
+                Err(anyhow!(
+                    "Failed to add new entry, '{name}' conflicts with an existing entry: '{entry}'"
+                ))?
             }
         }
     }
 
-    Entry::new(names.remove(0), names).save()?;
-    Ok(PO::Terminate)
+    Entry::new(names.remove(0), names).save()
 }

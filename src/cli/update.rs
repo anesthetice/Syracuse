@@ -1,6 +1,6 @@
 use super::*;
 
-pub(super) fn update_subcommand() -> Command {
+pub(super) fn subcommand() -> Command {
     Command::new("update")
         .about("Manually update the time of an entry")
         .long_about("This subcommand is used to manually increase or decrease the time associated with an entry on a given day")
@@ -56,41 +56,33 @@ pub(super) fn update_subcommand() -> Command {
         )
 }
 
-pub fn process_update_subcommand(
-    arg_matches: &ArgMatches,
-    entries: &Entries,
-    today: &SyrDate,
-) -> anyhow::Result<ProcessOutput> {
-    let Some(arg_matches) = arg_matches.subcommand_matches("update") else {
-        return Ok(PO::Continue(None));
-    };
+pub fn process(arg_matches: &ArgMatches, entries: &Entries, today: &SyrDate) -> anyhow::Result<()> {
     let date = match arg_matches.get_one::<String>("date") {
-        Some(string) => SyrDate::try_from(string.as_str())?,
+        Some(s) => SyrDate::try_from(s)?,
         None => *today,
     };
-    let Some(operation) = arg_matches.get_one::<String>("operation") else {
-        Err(error::Error {}).context("failed to parse operation as string")?
+    let operation = arg_matches
+        .get_one::<String>("operation")
+        .ok_or(anyhow!("Failed to parse operation to string"))?;
+
+    let name = arg_matches
+        .get_one::<String>("entry")
+        .ok_or(anyhow!("Failed to parse entry to string"))?;
+
+    let Some(mut entry) = entries.choose(&name.to_uppercase(), IndexOptions::Indexed) else {
+        return Ok(());
     };
-    let Some(entry_match) = arg_matches.get_one::<String>("entry") else {
-        Err(error::Error {}).context("failed to parse entry as string")?
-    };
-    let Some(mut entry) =
-        entries.choose(entry_match.to_uppercase().as_str(), IndexOptions::Indexed)
-    else {
-        return Ok(PO::Terminate);
-    };
+
     let hour_diff: f64 = *arg_matches.get_one::<f64>("hour").unwrap_or(&0.0);
     let minute_diff: f64 = *arg_matches.get_one::<f64>("minute").unwrap_or(&0.0);
     let second_diff: f64 = *arg_matches.get_one::<f64>("second").unwrap_or(&0.0);
-    let total_diff: u128 = (hour_diff * 3_600_000_000_000_f64
-        + minute_diff * 60_000_000_000_f64
-        + second_diff * 1_000_000_000_f64) as u128;
+    let total_diff: f64 = hour_diff * 3600.0 + minute_diff * 60.0 + second_diff;
 
     if ["add", "plus", "incr", "increase"]
         .iter()
         .any(|s| *s == operation)
     {
-        let tmp = ns_to_pretty_string(entry.get_block_duration(&date));
+        let tmp = sec_to_pretty_string(entry.get_bloc_duration(&date));
         entry.increase_bloc_duration(&date, total_diff);
         entry.save()?;
         println!(
@@ -98,13 +90,13 @@ pub fn process_update_subcommand(
             &date,
             &tmp,
             "――>".green(),
-            ns_to_pretty_string(entry.get_block_duration(&date))
+            sec_to_pretty_string(entry.get_bloc_duration(&date))
         )
     } else if ["sub", "rm", "rem", "remove", "minus", "decr", "decrease"]
         .iter()
         .any(|s| *s == operation)
     {
-        let tmp = ns_to_pretty_string(entry.get_block_duration(&date));
+        let tmp = sec_to_pretty_string(entry.get_bloc_duration(&date));
         entry.decrease_bloc_duration(&date, total_diff);
         entry.save()?;
         println!(
@@ -112,10 +104,11 @@ pub fn process_update_subcommand(
             &date,
             &tmp,
             "――>".red(),
-            ns_to_pretty_string(entry.get_block_duration(&date))
+            sec_to_pretty_string(entry.get_bloc_duration(&date))
         )
     } else {
-        warn!("unknown operation: '{}'", operation);
+        return Err(anyhow!("Unkown operation"));
     }
-    Ok(PO::Terminate)
+
+    Ok(())
 }

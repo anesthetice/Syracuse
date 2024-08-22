@@ -1,17 +1,16 @@
 use crate::{
-    algorithms, info,
+    algorithms,
     utils::{enter_clean_input_mode, exit_clean_input_mode},
-    warn,
 };
 use anyhow::Context;
 use crossterm::{event, style::Stylize};
 use itertools::Itertools;
-
-use super::syrtime::{Blocs, SyrDate};
 use std::{
     io::{Read, Write},
     path::{Path, PathBuf},
 };
+
+use super::syrtime::{blocs::Blocs, syrdate::SyrDate};
 
 pub struct Entries(Vec<Entry>);
 
@@ -45,21 +44,24 @@ impl Entries {
         self.iter().collect_vec()
     }
     pub fn load() -> anyhow::Result<Self> {
-        let entries = std::path::Path::read_dir(crate::dirs::Dirs::get().data_dir())?
+        log::debug!("Loading entries...");
+        let entries = Path::read_dir(crate::dirs::Dirs::get().data_dir())?
             .flat_map(|res| {
-                let Ok(entry) = res.map_err(|err| {
-                    warn!("{}", err);
-                }) else {
-                    return None;
-                };
-                let path = entry.path();
+                let path = match res {
+                    Ok(e) => e,
+                    Err(err) => {
+                        log::warn!("{}", err);
+                        return None;
+                    }
+                }
+                .path();
                 if path.extension()?.to_str()? != "json" {
                     return None;
                 }
                 match Entry::from_file(&path) {
                     Ok(entry) => Some(entry),
                     Err(error) => {
-                        warn!("{}", error);
+                        log::warn!("{}", error);
                         None
                     }
                 }
@@ -96,7 +98,7 @@ impl Entries {
             })
             // keeps entries with a high enough score
             .filter(|(score, entry)| {
-                info!("{:<15}:   {:.3}", entry.name, score);
+                log::trace!("{:<15}:   {:.3}", entry.name, score);
                 *score >= crate::config::Config::get().search_threshold
             })
             // sorts by the entry with the highest score
@@ -128,7 +130,7 @@ impl Entries {
         enter_clean_input_mode();
         loop {
             if !event::poll(std::time::Duration::from_millis(200)).unwrap_or_else(|err| {
-                warn!("event polling issue: '{}'", err);
+                log::warn!("Event polling issue: '{}'", err);
                 false
             }) {
                 continue;
@@ -137,7 +139,7 @@ impl Entries {
                 Ok(event::Event::Key(key)) => key,
                 Ok(_) => continue,
                 Err(error) => {
-                    warn!("event read issue: '{}'", error);
+                    log::warn!("Event read issue: '{}'", error);
                     continue;
                 }
             };
@@ -145,6 +147,7 @@ impl Entries {
             if key.kind != event::KeyEventKind::Press {
                 continue;
             }
+
             match key.code {
                 event::KeyCode::Esc
                 | event::KeyCode::Char('Q')
@@ -169,7 +172,7 @@ impl Entries {
         enter_clean_input_mode();
         loop {
             if !event::poll(std::time::Duration::from_millis(200)).unwrap_or_else(|err| {
-                warn!("event polling issue: '{}'", err);
+                log::warn!("Event polling issue: '{}'", err);
                 false
             }) {
                 continue;
@@ -178,7 +181,7 @@ impl Entries {
                 Ok(event::Event::Key(key)) => key,
                 Ok(_) => continue,
                 Err(error) => {
-                    warn!("event read issue: '{}'", error);
+                    log::warn!("Event read issue: '{}'", error);
                     continue;
                 }
             };
@@ -186,8 +189,13 @@ impl Entries {
             if key.kind != event::KeyEventKind::Press {
                 continue;
             }
+
             match key.code {
-                event::KeyCode::Esc | event::KeyCode::Char('q') | event::KeyCode::Char('n') => {
+                event::KeyCode::Esc
+                | event::KeyCode::Char('Q')
+                | event::KeyCode::Char('q')
+                | event::KeyCode::Char('N')
+                | event::KeyCode::Char('n') => {
                     exit_clean_input_mode();
                     break None;
                 }
@@ -212,10 +220,10 @@ impl Entries {
         }
     }
     // path must be validated beforehand
-    pub fn backup(&self, path: std::path::PathBuf) {
+    pub fn backup(&self, path: PathBuf) {
         for entry in self.iter() {
             if let Err(error) = entry.save_to_file(&path.join(entry.get_filestem() + ".json")) {
-                warn!("failed to back up an entry, caused by: '{error}'")
+                log::warn!("Failed to back up an entry: '{error}'")
             }
         }
     }
@@ -268,23 +276,18 @@ impl Entry {
     }
 
     fn from_file(filepath: &Path) -> anyhow::Result<Self> {
+        log::debug!("Loading entry from '{}' filepath...", filepath.display());
         let separator: &str = crate::config::Config::get()
             .entry_file_name_separtor
             .as_str();
         let mut file_name = filepath
             .file_stem()
-            .with_context(|| format!("failed to obtain filestem of: '{}'", filepath.display()))?
+            .context("Failed to obtain filestem of: '{}'")?
             .to_str()
-            .with_context(|| {
-                format!(
-                    "filename OsStr cannot be converted to valid utf-8: '{}'",
-                    filepath.display()
-                )
-            })?;
+            .context("Filename OsStr cannot be converted to valid utf-8")?;
 
         let indexed = !file_name.ends_with(".noindex");
         if !indexed {
-            // safe
             file_name = &file_name[..(file_name.len() - 8)];
         }
 
@@ -309,7 +312,7 @@ impl Entry {
         Ok(Self {
             name,
             aliases,
-            blocs: serde_json::from_slice(&buffer)?,
+            blocs: ijson::from_value(&serde_json::from_slice(&buffer)?)?,
             indexed,
         })
     }
@@ -326,7 +329,7 @@ impl Entry {
         filestem
     }
 
-    fn get_filepath(&self) -> std::path::PathBuf {
+    fn get_filepath(&self) -> PathBuf {
         crate::dirs::Dirs::get().data_dir().join(
             self.get_filestem()
                 + if self.indexed {
@@ -338,20 +341,20 @@ impl Entry {
     }
 
     // true = valid, false = invalid
-    pub fn check_new_entry_name_validity(&self, new_entry_name: &str) -> bool {
+    pub fn is_new_entry_name_valid(&self, new_entry_name: &str) -> bool {
         !(self.name.as_str() == new_entry_name
             || self.aliases.iter().any(|alias| alias == new_entry_name))
     }
 
-    pub fn get_block_duration(&self, date: &SyrDate) -> u128 {
-        *self.blocs.get(date).unwrap_or(&0)
+    pub fn get_bloc_duration(&self, date: &SyrDate) -> f64 {
+        *self.blocs.get(date).unwrap_or(&0.0)
     }
 
-    pub fn get_block_duration_total_as_hours(&self) -> f64 {
+    pub fn get_bloc_duration_total_as_hours(&self) -> f64 {
         self.blocs
             .iter()
-            .flat_map(|(_, x)| if *x != 0 { Some(*x) } else { None })
-            .fold(0_f64, |acc, x| acc + x as f64 / 3_600_000_000_000.0_f64)
+            .flat_map(|(_, x)| if *x != 0.0 { Some(*x) } else { None })
+            .fold(0_f64, |acc, x| acc + x as f64 / 3600.0)
     }
 
     pub fn save(&self) -> anyhow::Result<()> {
@@ -359,7 +362,9 @@ impl Entry {
     }
 
     pub(super) fn save_to_file(&self, filepath: &Path) -> anyhow::Result<()> {
-        let data = serde_json::to_vec_pretty(&self.blocs)?;
+        let parent_path = filepath.parent().unwrap_or(filepath).display();
+        log::debug!("Attempting to save '{}' to '{}'...", self.name, parent_path);
+        let data = serde_json::to_vec_pretty(&ijson::to_value(&self.blocs)?)?;
 
         std::fs::OpenOptions::new()
             .create(true)
@@ -368,25 +373,23 @@ impl Entry {
             .open(filepath)?
             .write_all(&data)?;
 
-        info!(
-            "saved '{}' to '{}'",
-            self.name,
-            filepath
-                .parent()
-                .unwrap_or(PathBuf::new().as_path())
-                .to_str()
-                .unwrap_or("?")
-        );
+        log::info!("Saved '{}' to '{}'", self.name, parent_path);
         Ok(())
     }
 
     pub fn delete(self) -> anyhow::Result<()> {
-        std::fs::remove_file(self.get_filepath())?;
-        info!("removed '{}'", self.name);
+        let filepath = self.get_filepath();
+        log::debug!(
+            "Attempting to remove '{}' from '{}'...",
+            self.name,
+            filepath.display()
+        );
+        std::fs::remove_file(filepath)?;
+        log::info!("Removed '{}'", self.name);
         Ok(())
     }
 
-    pub fn increase_bloc_duration(&mut self, date: &SyrDate, duration: u128) {
+    pub fn increase_bloc_duration(&mut self, date: &SyrDate, duration: f64) {
         if let Some(val) = self.blocs.get_mut(date) {
             *val += duration
         } else {
@@ -394,7 +397,7 @@ impl Entry {
         }
     }
 
-    pub fn decrease_bloc_duration(&mut self, date: &SyrDate, duration: u128) {
+    pub fn decrease_bloc_duration(&mut self, date: &SyrDate, duration: f64) {
         let mut delete_bloc: bool = false;
         if let Some(val) = self.blocs.get_mut(date) {
             if duration > *val {
@@ -403,8 +406,8 @@ impl Entry {
                 *val -= duration
             }
         }
-        if delete_bloc && self.blocs.remove(date).is_none() {
-            warn!("failed to decrease duration, could not remove bloc")
+        if delete_bloc {
+            self.blocs.remove(date);
         }
     }
 
@@ -424,4 +427,17 @@ impl Entry {
         std::fs::rename(old_filepath, self.get_filepath())?;
         Ok(())
     }
+}
+
+#[cfg(feature = "twotothree")]
+pub fn convert(mut entries: Entries) -> anyhow::Result<()> {
+    for entry in entries.0.iter_mut() {
+        entry.blocs.iter_mut().for_each(|(_, val)| {
+            if *val > 43200.0 {
+                *val /= 1e9
+            }
+        });
+        entry.save()?;
+    }
+    Ok(())
 }

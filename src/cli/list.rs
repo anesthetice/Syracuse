@@ -1,6 +1,6 @@
 use super::*;
 
-pub(super) fn list_subcommand() -> Command {
+pub(super) fn subcommand() -> Command {
     Command::new("list")
         .alias("ls")
         .about("List out all entries")
@@ -34,14 +34,7 @@ pub(super) fn list_subcommand() -> Command {
         )
 }
 
-pub fn process_list_subcommand(
-    arg_matches: &ArgMatches,
-    entries: &Entries,
-) -> anyhow::Result<ProcessOutput> {
-    let Some(arg_matches) = arg_matches.subcommand_matches("list") else {
-        return Ok(PO::Continue(None));
-    };
-
+pub fn process(arg_matches: &ArgMatches, entries: &Entries) -> anyhow::Result<()> {
     let entries: Vec<&Entry> = match (
         arg_matches.get_flag("indexed"),
         arg_matches.get_flag("unindexed"),
@@ -67,5 +60,5 @@ pub fn process_list_subcommand(
             println!("• {}\n", entry)
         }
     }
-    Ok(PO::Terminate)
+    Ok(())
 }

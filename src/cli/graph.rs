@@ -1,6 +1,6 @@
 use super::*;
 
-pub(super) fn graph_subcommand() -> Command {
+pub(super) fn subcommand() -> Command {
     Command::new("graph")
         .about("Creates a graph")
         .long_about("This subcommand is used to graph the entries within a specified time frame")
@@ -33,49 +33,33 @@ pub(super) fn graph_subcommand() -> Command {
         .group(ArgGroup::new("logic-group").conflicts_with("start-date"))
 }
 
-pub fn process_graph_subcommand(
-    arg_matches: &ArgMatches,
-    entries: Entries,
-    today: &SyrDate,
-) -> anyhow::Result<ProcessOutput> {
-    let Some(arg_matches) = arg_matches.subcommand_matches("graph") else {
-        return Ok(PO::Continue(Some(entries)));
+pub fn process(arg_matches: &ArgMatches, entries: Entries, today: &SyrDate) -> anyhow::Result<()> {
+    let date_span: SyrSpan = {
+        // days-back + specified end-date or not
+        if let Some(num) = arg_matches.get_one::<usize>("days-back") {
+            let end_date = match arg_matches.get_one::<String>("end-date") {
+                Some(string) => SyrDate::try_from(string).unwrap_or(*today),
+                None => *today,
+            };
+            SyrSpan::from_end_and_days_back(*end_date, *num as i64)
+        }
+        // start-date + specified end-date or not
+        else if let Some(start_date) = arg_matches.get_one::<String>("start-date") {
+            let start_date = SyrDate::try_from(start_date.as_str())?;
+
+            let end_date = match arg_matches.get_one::<String>("end-date") {
+                Some(string) => SyrDate::try_from(string.as_str()).unwrap_or(*today),
+                None => *today,
+            };
+
+            if start_date > end_date {
+                Err(anyhow!("Start date is more recent than end date"))?
+            }
+            SyrSpan::from_start_and_end(*start_date, *end_date)
+        } else {
+            return Err(anyhow!("Invalid subcommand usage"));
+        }
     };
 
-    // days-back + specified end-date or not
-    if let Some(num) = arg_matches.get_one::<usize>("days-back") {
-        // starts off as end date but will become the start date therefore it's already called start date
-        let mut start_date = match arg_matches.get_one::<String>("end-date") {
-            Some(string) => SyrDate::try_from(string.as_str()).unwrap_or(*today),
-            None => *today,
-        };
-        for _ in 0..*num {
-            start_date = start_date
-                .previous_day()
-                .ok_or(crate::error::Error {})
-                .context("invalid number of days back, this is highly unlikely")?
-                .into();
-        }
-        graphing::graph(entries, start_date, *today)?;
-        Ok(PO::Terminate)
-    }
-    // start-date + specified end-date or not
-    else {
-        let Some(start_date) = arg_matches.get_one::<String>("start-date") else {
-            Err(error::Error {}).context("failed to parse starting date as string")?
-        };
-        let start_date = SyrDate::try_from(start_date.as_str())?;
-
-        let end_date = match arg_matches.get_one::<String>("end-date") {
-            Some(string) => SyrDate::try_from(string.as_str()).unwrap_or(*today),
-            None => *today,
-        };
-
-        if start_date > end_date {
-            Err(error::Error {}).context("starting date is larger than ending date")?
-        }
-
-        crate::data::graphing::graph(entries, start_date, end_date)?;
-        Ok(PO::Terminate)
-    }
+    crate::data::graphing::graph(entries, date_span)
 }

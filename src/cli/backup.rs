@@ -1,6 +1,6 @@
 use super::*;
 
-pub(super) fn backup_subcommand() -> Command {
+pub(super) fn subcommand() -> Command {
     Command::new("backup")
         .about("Backup entries")
         .long_about("This subcommand is used to backup all entries to a directory specified in the configuration file or directly provided by the user")
@@ -12,22 +12,15 @@ pub(super) fn backup_subcommand() -> Command {
         )
 }
 
-pub fn process_backup_subcommand(
-    arg_matches: &ArgMatches,
-    entries: &Entries,
-    today_datetime: &OffsetDateTime,
-) -> anyhow::Result<ProcessOutput> {
-    let Some(arg_matches) = arg_matches.subcommand_matches("backup") else {
-        return Ok(PO::Continue(None));
-    };
+pub fn process(arg_matches: &ArgMatches, entries: &Entries, dt: &DateTime) -> anyhow::Result<()> {
     let folder = format!(
         "{:0>4}_{:0>2}_{:0>2}-{:0>2}_{:0>2}_{:0>2}/",
-        today_datetime.year(),
-        today_datetime.month() as u8,
-        today_datetime.day(),
-        today_datetime.hour(),
-        today_datetime.minute(),
-        today_datetime.second(),
+        dt.year(),
+        dt.month(),
+        dt.day(),
+        dt.hour(),
+        dt.minute(),
+        dt.second(),
     );
 
     let path = match arg_matches.get_one::<String>("path") {
@@ -36,19 +29,8 @@ pub fn process_backup_subcommand(
     }
     .join(folder);
 
-    if let Err(error) = std::fs::create_dir(&path) {
-        if error.kind() != std::io::ErrorKind::AlreadyExists {
-            warn!(
-                "failed to create the following directory: '{:?}', caused by: '{}'",
-                &path, error
-            );
-            return Ok(PO::Terminate);
-        } else {
-            info!("directory already exists, this is not feasible");
-        }
-    }
-    println!("backing up to: '{}'", &path.display());
-
+    std::fs::create_dir(&path).context("Failed to create backup directory")?;
+    log::info!("Backing up to: '{}'", &path.display());
     entries.backup(path);
-    Ok(PO::Terminate)
+    Ok(())
 }

@@ -1,29 +1,18 @@
-use crossterm::style::Stylize;
+use crate::{animation::AnimationBuilder, data::graphing::interpolation::InterpolationMethod};
 use serde::{Deserialize, Serialize};
 use std::{
     io::{Read, Write},
     sync::OnceLock,
 };
 
-use crate::{
-    animation::AnimationBuilder, data::graphing::interpolation::InterpolationMethod, warn,
-};
-
 pub static CONFIG: OnceLock<Config> = OnceLock::new();
-pub static VERBOSE: OnceLock<bool> = OnceLock::new();
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Config {
-    // should info statements be printed
-    pub debug: bool,
     // what set of characters separate the names of an entry stored as a file
     pub entry_file_name_separtor: String,
     // how often should progress be automatically saved in seconds
     pub autosave_period: u16,
-    // local utc offset to get accurate dates [HH, MM, SS]
-    // e.g. western europe : [1,0,0] or [2,0,0] generally depending on daylight saving time
-    // you will have to manually change the config to account for changes in your timezone
-    pub local_offset: [i8; 3],
     // default backup path
     pub backup_path: String,
     // when starting a stopwatch for a given entry, should the initial time be displayed?
@@ -33,7 +22,7 @@ pub struct Config {
     // by how many hours should the day be extended after midnight
     // e.g. 2 -> timers started until 2 a.m. on a given day will count towards the previous day
     // useful for night owls
-    pub night_owl_hour_extension: u8,
+    pub night_owl_hour_extension: i8,
 
     // threshold for results to be considered
     pub search_threshold: f64,
@@ -76,10 +65,8 @@ pub struct Config {
 impl Default for Config {
     fn default() -> Self {
         Self {
-            debug: false,
             entry_file_name_separtor: "-·-".to_string(),
             autosave_period: 30,
-            local_offset: [0, 0, 0],
             backup_path: "".to_string(),
             stopwatch_explicit: false,
             night_owl_hour_extension: 0,
@@ -130,22 +117,19 @@ impl Config {
         match Self::from_file(filepath) {
             Ok(config) => config,
             Err(error) => {
-                warn!(
-                    "failed to load configuration from file, caused by: '{}'",
-                    error
-                );
+                log::warn!("Failed to load configuration from file: '{}'", error);
                 let config = Self::default();
                 let Ok(downcast_error) = error.downcast::<std::io::Error>() else {
                     return config;
                 };
                 if downcast_error.kind() == std::io::ErrorKind::NotFound {
                     match config.to_file(filepath) {
-                        Ok(()) => warn!(
-                            "created default configuration file, at: '{}'",
+                        Ok(()) => log::warn!(
+                            "Created default configuration file, at: '{}'",
                             filepath.display()
                         ),
-                        Err(error) => warn!(
-                            "failed to create default configuration file, at: '{}', caused by: '{}'",
+                        Err(error) => log::warn!(
+                            "Failed to create default configuration file, at: '{}', caused by: '{}'",
                             filepath.display(),
                             error
                         ),
