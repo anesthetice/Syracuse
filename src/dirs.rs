@@ -1,5 +1,5 @@
-use std::sync::OnceLock;
 use directories::ProjectDirs;
+use std::sync::OnceLock;
 
 pub static DIRS: OnceLock<ProjectDirs> = OnceLock::new();
 
@@ -10,5 +10,3 @@ impl Dirs {
         DIRS.get().unwrap()
     }
 }
-
-

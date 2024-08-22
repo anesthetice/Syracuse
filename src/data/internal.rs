@@ -362,10 +362,9 @@ impl Entry {
     }
 
     pub(super) fn save_to_file(&self, filepath: &Path) -> anyhow::Result<()> {
-        let data = serde_json::to_vec_pretty(&ijson::to_value(&self.blocs)?)?;
         let parent_path = filepath.parent().unwrap_or(filepath).display();
-
         log::debug!("Attempting to save '{}' to '{}'...", self.name, parent_path);
+        let data = serde_json::to_vec_pretty(&ijson::to_value(&self.blocs)?)?;
 
         std::fs::OpenOptions::new()
             .create(true)
@@ -428,4 +427,17 @@ impl Entry {
         std::fs::rename(old_filepath, self.get_filepath())?;
         Ok(())
     }
+}
+
+#[cfg(feature = "twotothree")]
+pub fn convert(mut entries: Entries) -> anyhow::Result<()> {
+    for entry in entries.0.iter_mut() {
+        entry.blocs.iter_mut().for_each(|(_, val)| {
+            if *val > 43200.0 {
+                *val /= 1e9
+            }
+        });
+        entry.save()?;
+    }
+    Ok(())
 }

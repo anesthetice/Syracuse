@@ -1,24 +1,28 @@
-use crate::data::syrtime::blocs::sec_to_pretty_string;
 use crate::{
     animation, config,
     data::{
         internal::{Entries, Entry, IndexOptions},
-        syrtime::syrdate::SyrDate,
-        syrtime::syrspan::SyrSpan,
+        syrtime::{blocs::sec_to_pretty_string, syrdate::SyrDate, syrspan::SyrSpan},
     },
+    dirs::Dirs,
     utils::{enter_clean_input_mode, exit_clean_input_mode},
 };
 use anyhow::{anyhow, Context};
 use clap::{command, value_parser, Arg, ArgAction, ArgGroup, ArgMatches, Command};
 use crossterm::{event, style::Stylize};
+use itertools::Itertools;
 use jiff::civil::DateTime;
 use jiff::Span;
 use std::{
+    io::{Read, Write},
     path::PathBuf,
     time::{Duration, Instant},
 };
+
 mod add;
 mod backup;
+mod check_in;
+mod check_out;
 mod graph;
 mod list;
 mod prune;
@@ -54,6 +58,8 @@ pub fn cli(entries: Entries, today: SyrDate, dt: DateTime) -> anyhow::Result<()>
             sum::subcommand(),
             prune::subcommand(),
             graph::subcommand(),
+            check_in::subcommand(),
+            check_out::subcommand(),
         ]);
 
     let arg_matches = command.get_matches();
@@ -71,6 +77,8 @@ pub fn cli(entries: Entries, today: SyrDate, dt: DateTime) -> anyhow::Result<()>
         Some(("sum", arg_matches)) => sum::process(arg_matches, &entries, &today),
         Some(("prune", arg_matches)) => prune::process(arg_matches, entries),
         Some(("graph", arg_matches)) => graph::process(arg_matches, entries, &today),
+        Some(("check-in", arg_matches)) => check_in::process(arg_matches, &entries),
+        Some(("check-out", arg_matches)) => check_out::process(arg_matches, &entries, &today),
         _ => Ok(()),
     }
 }

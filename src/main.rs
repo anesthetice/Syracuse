@@ -7,9 +7,8 @@ mod dirs;
 mod utils;
 
 use anyhow::Context;
-use directories::ProjectDirs;
-
 use data::{internal::Entries, syrtime::syrdate::SyrDate};
+use directories::ProjectDirs;
 
 fn main() -> anyhow::Result<()> {
     env_logger::builder()
