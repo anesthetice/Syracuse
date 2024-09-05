@@ -101,11 +101,7 @@ pub fn process(arg_matches: &ArgMatches, entries: &Entries, today: &SyrDate) -> 
         }
 
         if arg_matches.get_flag("explicit") {
-            println!(
-                "\n{} {}",
-                "――>".green(),
-                format!("{:.3}", total_hours).bold()
-            );
+            print_arrow(format!("{:.3}", total_hours).bold(), "green");
         } else {
             println!("{}", format!("{:.3}", total_hours).bold());
         }
@@ -150,7 +146,7 @@ pub fn process(arg_matches: &ArgMatches, entries: &Entries, today: &SyrDate) -> 
             .iter()
             .map(|date| entry.get_bloc_duration(date))
             .filter(|x| *x != 0.0)
-            .fold(0_f64, |acc, x| acc + x as f64 / 3600.0);
+            .fold(0_f64, |acc, x| acc + x / 3600.0);
         total_hours += hours;
         if arg_matches.get_flag("explicit") && hours != 0.0 {
             println!("{:<15} :   {:.3}", entry.get_name(), hours)
@@ -158,11 +154,8 @@ pub fn process(arg_matches: &ArgMatches, entries: &Entries, today: &SyrDate) -> 
     }
 
     if arg_matches.get_flag("explicit") {
-        println!(
-            "\n{} {}",
-            "――>".green(),
-            format!("{:.3}", total_hours).bold()
-        );
+        println!();
+        print_arrow(format!("{:.3}", total_hours).bold(), "green");
     } else {
         println!("{}", format!("{:.3}", total_hours).bold());
     }

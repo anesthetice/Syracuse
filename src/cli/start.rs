@@ -37,7 +37,7 @@ pub fn process(arg_matches: &ArgMatches, entries: &Entries, today: &SyrDate) -> 
     loop {
         animation.step(
             &mut stdout,
-            &sec_to_pretty_string(instant.duration_since(start).as_secs_f64()),
+            &stps(instant.duration_since(start).as_secs_f64()),
         );
         if event::poll(std::time::Duration::from_millis(frame_period))? {
             if let event::Event::Key(key) = event::read()? {

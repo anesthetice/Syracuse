@@ -1,6 +1,6 @@
 use crate::{
     algorithms,
-    utils::{enter_clean_input_mode, exit_clean_input_mode},
+    utils::{enter_clean_input_mode, exit_clean_input_mode, print_arrow},
 };
 use anyhow::Context;
 use crossterm::{event, style::Stylize};
@@ -114,15 +114,13 @@ impl Entries {
             2.. => Self::choose_multiple(&choices),
         };
 
-        println!(
-            "{} {}\n",
-            "――>".cyan(),
+        print_arrow(
             match response.as_ref() {
                 Some(entry) => &entry.name,
                 None => "None",
-            }
+            },
+            "cyan",
         );
-
         response
     }
     fn choose_single(choice: &Entry) -> Option<Entry> {
@@ -221,6 +219,10 @@ impl Entries {
     }
     // path must be validated beforehand
     pub fn backup(&self, path: PathBuf) {
+        log::debug!(
+            "Attempting to back up entries to: '{}' ...",
+            &path.display()
+        );
         for entry in self.iter() {
             if let Err(error) = entry.save_to_file(&path.join(entry.get_filestem() + ".json")) {
                 log::warn!("Failed to back up an entry: '{error}'")
@@ -354,7 +356,7 @@ impl Entry {
         self.blocs
             .iter()
             .flat_map(|(_, x)| if *x != 0.0 { Some(*x) } else { None })
-            .fold(0_f64, |acc, x| acc + x as f64 / 3600.0)
+            .fold(0_f64, |acc, x| acc + x / 3600.0)
     }
 
     pub fn save(&self) -> anyhow::Result<()> {

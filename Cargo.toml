@@ -12,7 +12,7 @@ env_logger = { version = "0.11" }
 ijson = { version = "0.1" }
 itertools = { version = "0.13" }
 jiff = { version = "0.1", features = ["logging", "serde"] }
-log = { version = "0.4" }
+log = { version = "0.4", features = ["serde"] }
 plotters = { version = "0.3" }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = { version = "1.0" }

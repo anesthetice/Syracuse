@@ -1,5 +1,3 @@
-use log::debug;
-
 use super::*;
 
 pub(super) fn subcommand() -> Command {
@@ -70,19 +68,13 @@ pub fn process(arg_matches: &ArgMatches, entries: &Entries, today: &SyrDate) -> 
             ))?
             .clone();
 
-        let tmp = sec_to_pretty_string(entry.get_bloc_duration(today));
+        let tmp = stps(entry.get_bloc_duration(today));
         entry.increase_bloc_duration(today, elapsed);
-        println!(
-            "{}  :  {} {} {}",
-            today,
-            tmp,
-            "――>".green(),
-            sec_to_pretty_string(entry.get_bloc_duration(today))
-        );
+        print_datearrow(today, tmp, stps(entry.get_bloc_duration(today)), "green");
         entry.save()?;
     }
 
-    debug!(
+    log::debug!(
         "Attempting to delete check-in file '{}'",
         filepath.display()
     );

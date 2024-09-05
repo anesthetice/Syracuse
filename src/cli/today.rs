@@ -53,11 +53,7 @@ pub fn process(arg_matches: &ArgMatches, entries: &Entries, today: &SyrDate) -> 
                     // but even that would not be perfect, I would have to count the valid grapheme clusters which adds a lot of complexity
                     // to what I itend as simple padding
                     if duration != 0.0 {
-                        println!(
-                            "{:<15} :   {}",
-                            entry.get_name(),
-                            sec_to_pretty_string(duration)
-                        )
+                        println!("{:<15} :   {}", entry.get_name(), stps(duration))
                     }
                     duration
                 })
@@ -71,9 +67,9 @@ pub fn process(arg_matches: &ArgMatches, entries: &Entries, today: &SyrDate) -> 
     };
 
     if arg_matches.get_flag("explicit") {
-        println!("\n{} {}", "――>".green(), sec_to_pretty_string(sum).bold());
+        print_arrow(stps(sum).bold(), "green");
     } else {
-        println!("{}", sec_to_pretty_string(sum).bold());
+        println!("{}", stps(sum).bold());
     }
     Ok(())
 }

@@ -1,24 +1,4 @@
-use crate::{
-    animation, config,
-    data::{
-        internal::{Entries, Entry, IndexOptions},
-        syrtime::{blocs::sec_to_pretty_string, syrdate::SyrDate, syrspan::SyrSpan},
-    },
-    dirs::Dirs,
-    utils::{enter_clean_input_mode, exit_clean_input_mode},
-};
-use anyhow::{anyhow, Context};
-use clap::{command, value_parser, Arg, ArgAction, ArgGroup, ArgMatches, Command};
-use crossterm::{event, style::Stylize};
-use itertools::Itertools;
-use jiff::civil::DateTime;
-use jiff::Span;
-use std::{
-    io::{Read, Write},
-    path::PathBuf,
-    time::{Duration, Instant},
-};
-
+// Modules
 mod add;
 mod backup;
 mod check_in;
@@ -33,6 +13,28 @@ mod sum;
 mod today;
 mod unindex;
 mod update;
+
+// Imports
+use crate::{
+    animation, config,
+    data::{
+        internal::{Entries, Entry, IndexOptions},
+        syrtime::{blocs::sec_to_pretty_string as stps, syrdate::SyrDate, syrspan::SyrSpan},
+    },
+    dirs::Dirs,
+    utils::{enter_clean_input_mode, exit_clean_input_mode, print_arrow, print_datearrow},
+};
+use anyhow::{anyhow, Context};
+use clap::{command, value_parser, Arg, ArgAction, ArgGroup, ArgMatches, Command};
+use crossterm::{event, style::Stylize};
+use itertools::Itertools;
+use jiff::civil::DateTime;
+use jiff::Span;
+use std::{
+    io::{Read, Write},
+    path::PathBuf,
+    time::{Duration, Instant},
+};
 
 pub fn cli(entries: Entries, today: SyrDate, dt: DateTime) -> anyhow::Result<()> {
     let command = command!()

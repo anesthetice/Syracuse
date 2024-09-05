@@ -41,5 +41,7 @@ pub fn process(arg_matches: &ArgMatches, entries: &Entries) -> anyhow::Result<()
         }
     }
 
-    Entry::new(names.remove(0), names).save()
+    Entry::new(names.remove(0), names).save()?;
+    println!("New entry added");
+    Ok(())
 }

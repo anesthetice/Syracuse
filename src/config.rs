@@ -8,6 +8,7 @@ use std::{
 pub static CONFIG: OnceLock<Config> = OnceLock::new();
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default)]
 pub struct Config {
     // what set of characters separate the names of an entry stored as a file
     pub entry_file_name_separtor: String,

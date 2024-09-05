@@ -82,32 +82,20 @@ pub fn process(arg_matches: &ArgMatches, entries: &Entries, today: &SyrDate) -> 
         .iter()
         .any(|s| *s == operation)
     {
-        let tmp = sec_to_pretty_string(entry.get_bloc_duration(&date));
+        let tmp = stps(entry.get_bloc_duration(&date));
         entry.increase_bloc_duration(&date, total_diff);
         entry.save()?;
-        println!(
-            "{}  :  {} {} {}",
-            &date,
-            &tmp,
-            "――>".green(),
-            sec_to_pretty_string(entry.get_bloc_duration(&date))
-        )
+        print_datearrow(&date, tmp, stps(entry.get_bloc_duration(&date)), "green");
     } else if ["sub", "rm", "rem", "remove", "minus", "decr", "decrease"]
         .iter()
         .any(|s| *s == operation)
     {
-        let tmp = sec_to_pretty_string(entry.get_bloc_duration(&date));
+        let tmp = stps(entry.get_bloc_duration(&date));
         entry.decrease_bloc_duration(&date, total_diff);
         entry.save()?;
-        println!(
-            "{}  :  {} {} {}",
-            &date,
-            &tmp,
-            "――>".red(),
-            sec_to_pretty_string(entry.get_bloc_duration(&date))
-        )
+        print_datearrow(&date, tmp, stps(entry.get_bloc_duration(&date)), "red");
     } else {
-        return Err(anyhow!("Unkown operation"));
+        return Err(anyhow!("Unknown operation"));
     }
 
     Ok(())
