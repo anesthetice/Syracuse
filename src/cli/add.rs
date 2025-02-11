@@ -1,3 +1,5 @@
+use color_eyre::eyre::bail;
+
 use super::*;
 
 pub(super) fn subcommand() -> Command {
@@ -15,28 +17,28 @@ pub(super) fn subcommand() -> Command {
             )
 }
 
-pub fn process(arg_matches: &ArgMatches, entries: &Entries) -> anyhow::Result<()> {
+pub fn process(arg_matches: &ArgMatches, entries: &Entries) -> Result<()> {
     let names = arg_matches
         .get_many::<String>("entry")
-        .ok_or(anyhow!("Failed to parse entry/entries to string/strings"))?;
+        .ok_or_eyre("Failed to parse entry/entries to string/strings")?;
     let mut names: Vec<String> = names.map(|s| s.to_uppercase()).collect();
 
     let separator_characters = config::Config::get().entry_file_name_separtor.as_str();
 
     for name in names.iter() {
         if name.contains(separator_characters) {
-            Err(anyhow::anyhow!(
+            bail!(
                 "Failed to add new entry, '{name}' conflicts with the separator characters: '{separator_characters}'",
-            ))?;
+            );
         }
     }
 
     for entry in entries.iter() {
         for name in names.iter() {
             if !entry.is_new_entry_name_valid(name) {
-                Err(anyhow!(
+                bail!(
                     "Failed to add new entry, '{name}' conflicts with an existing entry: '{entry}'"
-                ))?
+                );
             }
         }
     }

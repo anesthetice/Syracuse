@@ -56,18 +56,18 @@ pub(super) fn subcommand() -> Command {
         )
 }
 
-pub fn process(arg_matches: &ArgMatches, entries: &Entries, today: &SyrDate) -> anyhow::Result<()> {
+pub fn process(arg_matches: &ArgMatches, entries: &Entries, today: &SyrDate) -> Result<()> {
     let date = match arg_matches.get_one::<String>("date") {
         Some(s) => SyrDate::try_from(s)?,
         None => *today,
     };
     let operation = arg_matches
         .get_one::<String>("operation")
-        .ok_or(anyhow!("Failed to parse operation to string"))?;
+        .ok_or_eyre("Failed to parse operation to string")?;
 
     let name = arg_matches
         .get_one::<String>("entry")
-        .ok_or(anyhow!("Failed to parse entry to string"))?;
+        .ok_or_eyre("Failed to parse entry to string")?;
 
     let Some(mut entry) = entries.choose(&name.to_uppercase(), IndexOptions::Indexed) else {
         return Ok(());
@@ -95,7 +95,7 @@ pub fn process(arg_matches: &ArgMatches, entries: &Entries, today: &SyrDate) -> 
         entry.save()?;
         print_datearrow(&date, tmp, stps(entry.get_bloc_duration(&date)), "red");
     } else {
-        return Err(anyhow!("Unknown operation"));
+        bail!("Unknown operation");
     }
 
     Ok(())

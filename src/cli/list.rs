@@ -34,7 +34,7 @@ pub(super) fn subcommand() -> Command {
         )
 }
 
-pub fn process(arg_matches: &ArgMatches, entries: &Entries) -> anyhow::Result<()> {
+pub fn process(arg_matches: &ArgMatches, entries: &Entries) -> Result<()> {
     let entries: Vec<&Entry> = match (
         arg_matches.get_flag("indexed"),
         arg_matches.get_flag("unindexed"),

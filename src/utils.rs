@@ -10,15 +10,17 @@ use std::io::stdout;
 static ARROW: &str = "――>";
 
 pub fn enter_clean_input_mode() {
-    let _ = enable_raw_mode().map_err(|err| log::warn!("Failed to enable raw mode: '{err}'"));
+    let _ =
+        enable_raw_mode().map_err(|err| eprintln!("Warning, Failed to enable raw mode: '{err}'"));
     let _ = execute!(stdout(), cursor::Hide)
-        .map_err(|err| log::warn!("Failed to hide cursor: '{err}'"));
+        .map_err(|err| eprintln!("Warning, Failed to hide cursor: '{err}'"));
 }
 
 pub fn exit_clean_input_mode() {
     let _ = execute!(stdout(), cursor::Show)
-        .map_err(|err| log::warn!("Failed to show cursor: '{err}'"));
-    let _ = disable_raw_mode().map_err(|err| log::warn!("Failed to disable raw mode: '{err}'"));
+        .map_err(|err| eprintln!("Warning: Failed to show cursor: '{err}'"));
+    let _ =
+        disable_raw_mode().map_err(|err| eprintln!("Warning: Failed to disable raw mode: '{err}'"));
 }
 
 pub fn print_datearrow<T1, T2>(date: &SyrDate, pre: T1, post: T2, color: &str)

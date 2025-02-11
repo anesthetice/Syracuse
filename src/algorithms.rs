@@ -1,6 +1,6 @@
 use crate::config::Config;
 
-/// returns a score from 0 to 1 depending on the local alignment of the two string sequences
+/// Returns a score from 0 to 1 depending on the local alignment of the two string sequences
 pub fn smith_waterman(seq_1: &str, seq_2: &str) -> f64 {
     let match_score: i16 = Config::get().match_score;
     let mismatch_penalty: i16 = Config::get().mismatch_penalty;
@@ -61,7 +61,7 @@ pub fn smith_waterman(seq_1: &str, seq_2: &str) -> f64 {
         total_score += score;
     }
 
-    // normalisation
+    // normalization
     let max_score = {
         let val = [match_score, mismatch_penalty, gap_penalty]
             .into_iter()
@@ -75,7 +75,7 @@ pub fn smith_waterman(seq_1: &str, seq_2: &str) -> f64 {
     total_score as f64 / max_score as f64
 }
 
-/// returns a score from -1 to 1 depending on the global alignment of the two string sequences
+/// Returns a score from -1 to 1 depending on the global alignment of the two string sequences
 pub fn needleman_wunsch(seq_1: &str, seq_2: &str) -> f64 {
     let match_score: i16 = Config::get().match_score;
     let mismatch_penalty: i16 = Config::get().mismatch_penalty;
@@ -134,9 +134,9 @@ pub fn needleman_wunsch(seq_1: &str, seq_2: &str) -> f64 {
     let j_gp = j as i16 * gap_penalty;
     total_score += i_gp * (i_gp + 1) / 2 + j_gp * (j_gp + 1) / 2;
 
-    // normalisation
+    // normalization
     // paranoid, but this should mathematically ensure the result is between -1 and 1 even if the user does something absurd like set the match_score to a negative integer
-    // or if they have absurdly high penalites, etc...
+    // or if they have absurdly high penalties, etc...
     match total_score {
         1.. => {
             let max_pos_score = {

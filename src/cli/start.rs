@@ -14,10 +14,10 @@ pub(super) fn subcommand() -> Command {
         )
 }
 
-pub fn process(arg_matches: &ArgMatches, entries: &Entries, today: &SyrDate) -> anyhow::Result<()> {
+pub fn process(arg_matches: &ArgMatches, entries: &Entries, today: &SyrDate) -> Result<()> {
     let name = arg_matches
         .get_one::<String>("entry")
-        .ok_or(anyhow!("Failed to parse entry to string"))?;
+        .ok_or_eyre("Failed to parse entry to string")?;
 
     let Some(mut entry) = entries.choose(&name.to_uppercase(), IndexOptions::Indexed) else {
         return Ok(());
@@ -54,10 +54,9 @@ pub fn process(arg_matches: &ArgMatches, entries: &Entries, today: &SyrDate) -> 
             if let Err(error) = entry.save() {
                 file_save_error_counter += 1;
                 if file_save_error_counter > 2 {
-                    log::error!("Maximum number of failed autosaves reached, exiting...");
-                    return Err(error);
+                    return Err(error.wrap_err("Maximum number of failed autosaves reached"));
                 } else {
-                    log::warn!("Failed to autosave progress: '{}'", error);
+                    eprintln!("Warning: Failed to autosave progress, '{}'", error);
                 }
             }
             autosave_instant = instant;

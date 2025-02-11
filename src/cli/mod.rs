@@ -24,8 +24,9 @@ use crate::{
     dirs::Dirs,
     utils::{enter_clean_input_mode, exit_clean_input_mode, print_arrow, print_datearrow},
 };
-use anyhow::{anyhow, Context};
 use clap::{command, value_parser, Arg, ArgAction, ArgGroup, ArgMatches, Command};
+use color_eyre::eyre::{bail, Context, OptionExt};
+use color_eyre::Result;
 use crossterm::{event, style::Stylize};
 use itertools::Itertools;
 use jiff::civil::DateTime;
@@ -36,33 +37,23 @@ use std::{
     time::{Duration, Instant},
 };
 
-pub fn cli(entries: Entries, today: SyrDate, dt: DateTime) -> anyhow::Result<()> {
-    let command = command!()
-        .arg(
-            Arg::new("verbose")
-                .long("verbose")
-                .alias("debug")
-                .short('v')
-                .required(false)
-                .global(true)
-                .action(ArgAction::SetTrue),
-        )
-        .subcommands([
-            add::subcommand(),
-            list::subcommand(),
-            remove::subcommand(),
-            start::subcommand(),
-            update::subcommand(),
-            today::subcommand(),
-            backup::subcommand(),
-            unindex::subcommand(),
-            reindex::subcommand(),
-            sum::subcommand(),
-            prune::subcommand(),
-            graph::subcommand(),
-            check_in::subcommand(),
-            check_out::subcommand(),
-        ]);
+pub fn cli(entries: Entries, today: SyrDate, dt: DateTime) -> Result<()> {
+    let command = command!().subcommands([
+        add::subcommand(),
+        list::subcommand(),
+        remove::subcommand(),
+        start::subcommand(),
+        update::subcommand(),
+        today::subcommand(),
+        backup::subcommand(),
+        unindex::subcommand(),
+        reindex::subcommand(),
+        sum::subcommand(),
+        prune::subcommand(),
+        graph::subcommand(),
+        check_in::subcommand(),
+        check_out::subcommand(),
+    ]);
 
     let arg_matches = command.get_matches();
 

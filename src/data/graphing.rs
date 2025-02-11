@@ -3,6 +3,7 @@ use super::{
     syrtime::{syrdate::SyrDate, syrspan::SyrSpan},
 };
 use crate::config::Config;
+use color_eyre::{eyre::bail, Result};
 use itertools::Itertools;
 use plotters::prelude::*;
 use std::path::PathBuf;
@@ -29,7 +30,7 @@ impl GraphMethods for Entry {
     }
 }
 
-pub fn graph(entries: Entries, date_span: SyrSpan) -> anyhow::Result<()> {
+pub fn graph(entries: Entries, date_span: SyrSpan) -> Result<()> {
     let filename = format!(
         "Graph_from_{}_to_{}.png",
         SyrDate::from(date_span.start).to_string_with_formatting('-'),
@@ -52,17 +53,13 @@ pub fn graph(entries: Entries, date_span: SyrSpan) -> anyhow::Result<()> {
     let mut mcw_idx: usize = 0;
 
     if marker_color_wheel.is_empty() {
-        Err(anyhow::anyhow!(
-            "At least one color required in graph_marker_colors"
-        ))?;
+        bail!("At least one color required in graph_marker_colors");
     }
 
     let dates = date_span.into_iter().collect_vec();
 
     if dates.len() < 3 {
-        Err(anyhow::anyhow!(
-            "At minimum, a span of three days is required to build a graph"
-        ))?
+        bail!("At minimum, a span of three days is required to build a graph");
     }
 
     let mut superpoints: Vec<(String, Vec<(f64, f64)>)> = entries
@@ -83,7 +80,7 @@ pub fn graph(entries: Entries, date_span: SyrSpan) -> anyhow::Result<()> {
         .unwrap_or(6.0)
         .ceil();
     if max_y == 0.0 {
-        log::warn!("No entries found within the given date span, returning early");
+        eprintln!("Warning: No entries found within the given date span, returning early");
         return Ok(());
     }
 
@@ -99,7 +96,7 @@ pub fn graph(entries: Entries, date_span: SyrSpan) -> anyhow::Result<()> {
             if path.is_dir() {
                 path.join(filename)
             } else {
-                log::warn!("Invalid directory, defaulting to current directory");
+                eprintln!("Warning: Invalid directory, defaulting to current directory");
                 PathBuf::from(filename)
             }
         }
@@ -210,7 +207,7 @@ pub fn graph(entries: Entries, date_span: SyrSpan) -> anyhow::Result<()> {
     }
 
     if !superpoints.is_empty() {
-        log::warn!("Failed to graph every single entry, consider adding more colors in the config or narrowing the date span");
+        eprintln!("Warning: Failed to graph every single entry, consider adding more colors in the config or narrowing the date span");
     }
 
     ctx.configure_series_labels()
@@ -249,7 +246,7 @@ pub mod interpolation {
             .map(|((x_i, y_i), (x_ip1, y_ip1))| {
                 let mut local_points: Vec<(f64, f64)> = Vec::new();
 
-                // lots of "off-by-one" bs but it's not really important
+                // lots of "off-by-one" errors but it's not really important
                 let step_size = (x_ip1 - x_i) / nb_points as f64;
                 let mut x = x_i;
                 while x < x_ip1 {
@@ -266,8 +263,8 @@ pub mod interpolation {
 
     pub(super) fn makima(points: Vec<(f64, f64)>) -> Vec<(f64, f64)> {
         if points.len() < 5 {
-            log::warn!(
-                "A minimum of 5 points are required to use m-Akima interpolation, got {}",
+            eprintln!(
+                "Warning: A minimum of 5 points are required to use m-Akima interpolation, got {}",
                 points.len()
             );
             return linear(points);
@@ -311,7 +308,7 @@ pub mod interpolation {
 
                 let mut local_points: Vec<(f64, f64)> = Vec::new();
 
-                // lots of "off-by-one" bs but it's not really important
+                // lots of "off-by-one" errors but it's not really important
                 let step_size = (x_ip1 - x_i) / nb_points as f64;
                 let mut x = x_i;
                 while x < x_ip1 {

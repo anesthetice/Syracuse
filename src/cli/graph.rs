@@ -33,7 +33,7 @@ pub(super) fn subcommand() -> Command {
         .group(ArgGroup::new("logic-group").conflicts_with("start-date"))
 }
 
-pub fn process(arg_matches: &ArgMatches, entries: Entries, today: &SyrDate) -> anyhow::Result<()> {
+pub fn process(arg_matches: &ArgMatches, entries: Entries, today: &SyrDate) -> Result<()> {
     let date_span: SyrSpan = {
         // days-back + specified end-date or not
         if let Some(num) = arg_matches.get_one::<usize>("days-back") {
@@ -53,11 +53,11 @@ pub fn process(arg_matches: &ArgMatches, entries: Entries, today: &SyrDate) -> a
             };
 
             if start_date > end_date {
-                Err(anyhow!("Start date is more recent than end date"))?
+                bail!("Start date is more recent than end date");
             }
             SyrSpan::from_start_and_end(*start_date, *end_date)
         } else {
-            return Err(anyhow!("Invalid subcommand usage"));
+            bail!("Invalid subcommand usage");
         }
     };
 

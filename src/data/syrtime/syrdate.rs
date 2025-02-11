@@ -1,4 +1,4 @@
-use anyhow::Context;
+use color_eyre::eyre::{bail, eyre, Context};
 use serde::{de::Visitor, Deserialize, Serialize};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -37,18 +37,18 @@ impl From<jiff::civil::Date> for SyrDate {
 }
 
 impl TryFrom<&str> for SyrDate {
-    type Error = anyhow::Error;
+    type Error = color_eyre::eyre::Error;
     fn try_from(value: &str) -> Result<Self, Self::Error> {
         let split_char = ['/', '.', '-', '_']
             .into_iter()
             .filter(|char| value.contains(*char))
             .nth(0)
-            .ok_or(anyhow::anyhow!(
-                "Failed to parse date, no separator character detected, ('/', '.', '-', '_')"
-            ))?;
+            .ok_or_else(|| {
+                eyre!("Failed to parse date, no separator character detected, ('/', '.', '-', '_')")
+            })?;
         let input: Vec<&str> = value.split(split_char).collect();
         if input.len() != 3 {
-            Err(anyhow::anyhow!("Failed to parse date, invalid date format, expected dd/mm/yyyy, or with '/' alternatives such as '.', '_', or '-'"))?;
+            bail!("Failed to parse date, invalid date format, expected dd/mm/yyyy, or with '/' alternatives such as '.', '_', or '-'");
         }
         Ok(Self::from(jiff::civil::Date::new(
             input[2].parse::<i16>().context("Failed to parse date, invalid year")?,
@@ -59,7 +59,7 @@ impl TryFrom<&str> for SyrDate {
 }
 
 impl TryFrom<&String> for SyrDate {
-    type Error = anyhow::Error;
+    type Error = color_eyre::eyre::Error;
     fn try_from(value: &String) -> Result<Self, Self::Error> {
         Self::try_from(value.as_str())
     }

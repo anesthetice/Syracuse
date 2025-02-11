@@ -14,10 +14,10 @@ pub(super) fn subcommand() -> Command {
         )
 }
 
-pub fn process(arg_matches: &ArgMatches, entries: &Entries) -> anyhow::Result<()> {
+pub fn process(arg_matches: &ArgMatches, entries: &Entries) -> Result<()> {
     let name = arg_matches
         .get_one::<String>("entry")
-        .ok_or(anyhow!("Failed to parse entry to string"))?;
+        .ok_or_eyre("Failed to parse entry to string")?;
 
     let Some(entry) = entries.choose(&name.to_uppercase(), IndexOptions::Indexed) else {
         return Ok(());
@@ -28,7 +28,7 @@ pub fn process(arg_matches: &ArgMatches, entries: &Entries) -> anyhow::Result<()
         let filepath = match filepath {
             Ok(e) => e,
             Err(err) => {
-                log::warn!("{}", err);
+                eprintln!("Warning: {}", err);
                 continue;
             }
         }
@@ -41,10 +41,10 @@ pub fn process(arg_matches: &ArgMatches, entries: &Entries) -> anyhow::Result<()
             continue;
         };
         if ext == "cin" {
-            return Err(anyhow::anyhow!(
+            bail!(
                 "Another entry is already checked-in: '{}'",
                 filepath.display()
-            ));
+            );
         }
     }
 
@@ -59,8 +59,6 @@ pub fn process(arg_matches: &ArgMatches, entries: &Entries) -> anyhow::Result<()
         .create_new(true)
         .open(&filepath)?
         .write_all(&timestamp)?;
-
-    log::info!("Checked-in '{}'", entry.get_name());
 
     Ok(())
 }

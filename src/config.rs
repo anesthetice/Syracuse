@@ -1,4 +1,5 @@
 use crate::{animation::AnimationBuilder, data::graphing::interpolation::InterpolationMethod};
+use color_eyre::Result;
 use serde::{Deserialize, Serialize};
 use std::{
     io::{Read, Write},
@@ -10,56 +11,52 @@ pub static CONFIG: OnceLock<Config> = OnceLock::new();
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Config {
-    // what set of characters separate the names of an entry stored as a file
+    /// Determines what set of characters separate the names of an entry stored as a file.
     pub entry_file_name_separtor: String,
-    // how often should progress be automatically saved in seconds
+    /// Determines how often should progress be automatically saved in seconds.
     pub autosave_period: u16,
-    // default backup path
+    // The default backup path.
     pub backup_path: String,
-    // when starting a stopwatch for a given entry, should the initial time be displayed?
-    // realistically this could also just be an argument option in the CLI, but I personally want
-    // it to be always on, so there we go..
+    /// Determines weather or not the initial time is displayed when running an entry.
     pub stopwatch_explicit: bool,
-    // by how many hours should the day be extended after midnight
-    // e.g. 2 -> timers started until 2 a.m. on a given day will count towards the previous day
-    // useful for night owls
+    /// Determines the numbers of hours past midnight for which running a command will count for the previous day.
     pub night_owl_hour_extension: i8,
 
-    // threshold for results to be considered
+    /// The threshold for results to be considered.
     pub search_threshold: f64,
-    // smith-waterman and needlman-wunsch algorithm weight
+    /// The relative weights of the Smith-Waterman and Needlman-Wunsch algorithms respectively.
     pub sw_nw_ratio: f64,
-    // used for sw and nw algorithms
+    /// The match score used by both algorithms.
     pub match_score: i16,
-    // used for sw and nw algorithms
+    /// The mismatch penalty used by both algorithms.
     pub mismatch_penalty: i16,
-    // used for sw and nw algorithms
+    /// The gap penalty used by both algorithms.
     pub gap_penalty: i16,
 
-    // approximately how long a frame will be displayed in milliseconds before being refreshed
+    /// Determines how long in milliseconds a frame will be displayed before being refreshed.
     pub frame_period: u64,
-    // don't ask me why this should be in a config file
+    /// The animation frames, an array containing (left, right) strings.
     pub animation: AnimationBuilder,
 
-    // empty string means where directory from which syracuse was executed
+    /// Determines the directory where graphs are saved, an empty string defaults to current directory
     pub graph_output_dir: String,
-    // "Linear" or "Makima" interpolation are currently available, note that Makima overshoots
+    /// Determines the interpolation method used, "Linear" and "Makima" are currently available.
     pub graph_interpolation_method: InterpolationMethod,
-    // the number of points between a date and the next one that will be interpolated when graphing the sum of entries
+    /// Determines the number of points between a date and the next one that will be interpolated.
     pub graph_nb_interpolated_points: usize,
-    // marker size for entries
+    /// Determines the marker size for entries.
     pub graph_marker_size: u32,
-    // graph background color
+    /// Determines the background color of the graph.
     pub graph_background_rgb: (u8, u8, u8),
-    // graph foreground color
+    /// Determines the foreground color of the graph.
     pub graph_foreground_rgb: (u8, u8, u8),
-    // graph bold grid color
+    /// Determines the bold grid color of the graph.
     pub graph_coarse_grid_rgb: (u8, u8, u8),
-    // graph fine grid color
+    /// Determines the fine grid color of the graph.
     pub graph_fine_grid_rgb: (u8, u8, u8),
-    // graph sum line color
+    /// Determines the sum line color of the graph.
     pub graph_sum_line_rgb: (u8, u8, u8),
-    // the colors used for entry markers
+    /// Determines the colors used for entry markers.
     pub graph_marker_rgb: Vec<(u8, u8, u8)>,
 }
 
@@ -118,19 +115,22 @@ impl Config {
         match Self::from_file(filepath) {
             Ok(config) => config,
             Err(error) => {
-                log::warn!("Failed to load configuration from file: '{}'", error);
+                eprintln!(
+                    "Warning: Failed to load configuration from file: '{}'",
+                    error
+                );
                 let config = Self::default();
                 let Ok(downcast_error) = error.downcast::<std::io::Error>() else {
                     return config;
                 };
                 if downcast_error.kind() == std::io::ErrorKind::NotFound {
                     match config.to_file(filepath) {
-                        Ok(()) => log::warn!(
-                            "Created default configuration file, at: '{}'",
+                        Ok(()) => eprintln!(
+                            "Warning: Created default configuration file, at: '{}'",
                             filepath.display()
                         ),
-                        Err(error) => log::warn!(
-                            "Failed to create default configuration file, at: '{}', caused by: '{}'",
+                        Err(error) => eprintln!(
+                            "Warning: Failed to create default configuration file, at: '{}', caused by: '{}'",
                             filepath.display(),
                             error
                         ),
@@ -141,23 +141,23 @@ impl Config {
         }
     }
 
-    fn from_file(filepath: &std::path::Path) -> anyhow::Result<Self> {
+    fn from_file(filepath: &std::path::Path) -> Result<Self> {
         let mut buffer: Vec<u8> = Vec::new();
         std::fs::OpenOptions::new()
             .create(false)
             .read(true)
             .open(filepath)?
             .read_to_end(&mut buffer)?;
-        Ok(serde_json::from_slice(&buffer)?)
+        Ok(ijson::from_value(&serde_json::from_slice(&buffer)?)?)
     }
 
-    fn to_file(&self, filepath: &std::path::Path) -> anyhow::Result<()> {
+    fn to_file(&self, filepath: &std::path::Path) -> Result<()> {
         let mut file = std::fs::OpenOptions::new()
             .write(true)
             .create_new(true)
             .open(filepath)?;
 
-        file.write_all(&serde_json::to_vec_pretty(&self)?)?;
+        file.write_all(&serde_json::to_vec_pretty(&ijson::to_value(self)?)?)?;
         file.flush()?;
         Ok(())
     }

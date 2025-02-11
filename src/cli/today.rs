@@ -32,7 +32,7 @@ pub(super) fn subcommand() -> Command {
         )
 }
 
-pub fn process(arg_matches: &ArgMatches, entries: &Entries, today: &SyrDate) -> anyhow::Result<()> {
+pub fn process(arg_matches: &ArgMatches, entries: &Entries, today: &SyrDate) -> Result<()> {
     let date: SyrDate = {
         let mut date = **today;
         if arg_matches.get_flag("yesterday") {
@@ -49,9 +49,7 @@ pub fn process(arg_matches: &ArgMatches, entries: &Entries, today: &SyrDate) -> 
                 .iter()
                 .map(|entry| {
                     let duration = entry.get_bloc_duration(&date);
-                    // 15 seems reasonable, I could check the length of every entry's name and get a better estimation
-                    // but even that would not be perfect, I would have to count the valid grapheme clusters which adds a lot of complexity
-                    // to what I itend as simple padding
+                    // 15 seems reasonable, I could check the length of every entry's name and get a better estimation, but even that would not be perfect, I would have to count the valid grapheme clusters which adds a lot of complexity, to what I itend as simple padding
                     if duration != 0.0 {
                         println!("{:<15} :   {}", entry.get_name(), stps(duration))
                     }

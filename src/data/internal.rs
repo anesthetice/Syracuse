@@ -2,7 +2,10 @@ use crate::{
     algorithms,
     utils::{enter_clean_input_mode, exit_clean_input_mode, print_arrow},
 };
-use anyhow::Context;
+use color_eyre::{
+    eyre::{eyre, OptionExt},
+    Result,
+};
 use crossterm::{event, style::Stylize};
 use itertools::Itertools;
 use std::{
@@ -43,14 +46,13 @@ impl Entries {
     pub fn as_inner(&self) -> Vec<&Entry> {
         self.iter().collect_vec()
     }
-    pub fn load() -> anyhow::Result<Self> {
-        log::debug!("Loading entries...");
+    pub fn load() -> Result<Self> {
         let entries = Path::read_dir(crate::dirs::Dirs::get().data_dir())?
             .flat_map(|res| {
                 let path = match res {
                     Ok(e) => e,
                     Err(err) => {
-                        log::warn!("{}", err);
+                        eprintln!("Warning: {}", err);
                         return None;
                     }
                 }
@@ -61,7 +63,7 @@ impl Entries {
                 match Entry::from_file(&path) {
                     Ok(entry) => Some(entry),
                     Err(error) => {
-                        log::warn!("{}", error);
+                        eprintln!("Warning: {}", error);
                         None
                     }
                 }
@@ -72,9 +74,10 @@ impl Entries {
         Ok(entries)
     }
     pub fn choose(&self, query: &str, index_options: IndexOptions) -> Option<Entry> {
+        let sw_nw_ratio = crate::config::Config::get().sw_nw_ratio;
         let choices: Vec<&Entry> = self
             .iter()
-            // keeps only entries marked as indexed if indexed_exclusive is true
+            // Keeps only entries marked as indexed if indexed_exclusive is true
             .filter(|entry| match index_options {
                 IndexOptions::All => true,
                 IndexOptions::Indexed => entry.indexed,
@@ -88,22 +91,18 @@ impl Entries {
                         .iter()
                         .chain(std::iter::once(&entry.name))
                         .map(|string| {
-                            let sw_factor = crate::config::Config::get().sw_nw_ratio;
-                            sw_factor * algorithms::smith_waterman(string, query)
-                                + (1.0 - sw_factor) * algorithms::needleman_wunsch(string, query)
+                            sw_nw_ratio * algorithms::smith_waterman(string, query)
+                                + (1.0 - sw_nw_ratio) * algorithms::needleman_wunsch(string, query)
                         })
                         .fold(-1.0, |acc, x| if x > acc { x } else { acc }),
                     entry,
                 )
             })
-            // keeps entries with a high enough score
-            .filter(|(score, entry)| {
-                log::trace!("{:<15}:   {:.3}", entry.name, score);
-                *score >= crate::config::Config::get().search_threshold
-            })
-            // sorts by the entry with the highest score
+            // Keeps entries with a high enough score
+            .filter(|(score, _)| *score >= crate::config::Config::get().search_threshold)
+            // Sorts by score, highest at the top
             .sorted_by(|(a, _), (b, _)| b.partial_cmp(a).unwrap_or(std::cmp::Ordering::Equal))
-            // keeps only the top 3
+            // Keep only the top three scores
             .take(3)
             .map(|(_, entry)| entry)
             .collect();
@@ -124,11 +123,11 @@ impl Entries {
         response
     }
     fn choose_single(choice: &Entry) -> Option<Entry> {
-        println!("{} [Y/n]", choice);
+        println!("{} [y/N]", choice);
         enter_clean_input_mode();
         loop {
             if !event::poll(std::time::Duration::from_millis(200)).unwrap_or_else(|err| {
-                log::warn!("Event polling issue: '{}'", err);
+                eprintln!("Warning: Event polling issue, '{}'", err);
                 false
             }) {
                 continue;
@@ -136,8 +135,8 @@ impl Entries {
             let key = match event::read() {
                 Ok(event::Event::Key(key)) => key,
                 Ok(_) => continue,
-                Err(error) => {
-                    log::warn!("Event read issue: '{}'", error);
+                Err(err) => {
+                    eprintln!("Warning: Event read issue, '{}'", err);
                     continue;
                 }
             };
@@ -170,7 +169,7 @@ impl Entries {
         enter_clean_input_mode();
         loop {
             if !event::poll(std::time::Duration::from_millis(200)).unwrap_or_else(|err| {
-                log::warn!("Event polling issue: '{}'", err);
+                eprintln!("Warning: Event polling issue: '{}'", err);
                 false
             }) {
                 continue;
@@ -178,8 +177,8 @@ impl Entries {
             let key = match event::read() {
                 Ok(event::Event::Key(key)) => key,
                 Ok(_) => continue,
-                Err(error) => {
-                    log::warn!("Event read issue: '{}'", error);
+                Err(err) => {
+                    eprintln!("Warning: Event read issue, '{}'", err);
                     continue;
                 }
             };
@@ -219,13 +218,9 @@ impl Entries {
     }
     // path must be validated beforehand
     pub fn backup(&self, path: PathBuf) {
-        log::debug!(
-            "Attempting to back up entries to: '{}' ...",
-            &path.display()
-        );
         for entry in self.iter() {
             if let Err(error) = entry.save_to_file(&path.join(entry.get_filestem() + ".json")) {
-                log::warn!("Failed to back up an entry: '{error}'")
+                eprintln!("Warning: Failed to back up an entry: '{error}'")
             }
         }
     }
@@ -277,16 +272,15 @@ impl Entry {
         &self.name
     }
 
-    fn from_file(filepath: &Path) -> anyhow::Result<Self> {
-        log::debug!("Loading entry from '{}' filepath...", filepath.display());
+    fn from_file(filepath: &Path) -> Result<Self> {
         let separator: &str = crate::config::Config::get()
             .entry_file_name_separtor
             .as_str();
         let mut file_name = filepath
             .file_stem()
-            .context("Failed to obtain filestem of: '{}'")?
+            .ok_or_else(|| eyre!("Failed to obtain filestem of: '{}'", filepath.display()))?
             .to_str()
-            .context("Filename OsStr cannot be converted to valid utf-8")?;
+            .ok_or_eyre("Filename OsStr cannot be converted to valid utf-8")?;
 
         let indexed = !file_name.ends_with(".noindex");
         if !indexed {
@@ -359,13 +353,11 @@ impl Entry {
             .fold(0_f64, |acc, x| acc + x / 3600.0)
     }
 
-    pub fn save(&self) -> anyhow::Result<()> {
+    pub fn save(&self) -> Result<()> {
         self.save_to_file(&self.get_filepath())
     }
 
-    pub(super) fn save_to_file(&self, filepath: &Path) -> anyhow::Result<()> {
-        let parent_path = filepath.parent().unwrap_or(filepath).display();
-        log::debug!("Attempting to save '{}' to '{}'...", self.name, parent_path);
+    pub(super) fn save_to_file(&self, filepath: &Path) -> Result<()> {
         let data = serde_json::to_vec_pretty(&ijson::to_value(&self.blocs)?)?;
 
         std::fs::OpenOptions::new()
@@ -375,19 +367,12 @@ impl Entry {
             .open(filepath)?
             .write_all(&data)?;
 
-        log::info!("Saved '{}' to '{}'", self.name, parent_path);
         Ok(())
     }
 
-    pub fn delete(self) -> anyhow::Result<()> {
+    pub fn delete(self) -> Result<()> {
         let filepath = self.get_filepath();
-        log::debug!(
-            "Attempting to remove '{}' from '{}'...",
-            self.name,
-            filepath.display()
-        );
         std::fs::remove_file(filepath)?;
-        log::info!("Removed '{}'", self.name);
         Ok(())
     }
 
@@ -413,7 +398,7 @@ impl Entry {
         }
     }
 
-    pub fn prune(&mut self, cutoff_date: &SyrDate) -> anyhow::Result<usize> {
+    pub fn prune(&mut self, cutoff_date: &SyrDate) -> Result<usize> {
         let num = self.blocs.prune(cutoff_date);
         self.save()?;
         Ok(num)
@@ -423,7 +408,7 @@ impl Entry {
         self.indexed
     }
 
-    pub fn inverse_indexability(&mut self) -> anyhow::Result<()> {
+    pub fn inverse_indexability(&mut self) -> Result<()> {
         let old_filepath = self.get_filepath();
         self.indexed = !self.indexed;
         std::fs::rename(old_filepath, self.get_filepath())?;
@@ -432,7 +417,7 @@ impl Entry {
 }
 
 #[cfg(feature = "twotothree")]
-pub fn convert(mut entries: Entries) -> anyhow::Result<()> {
+pub fn convert(mut entries: Entries) -> Result<()> {
     for entry in entries.0.iter_mut() {
         entry.blocs.iter_mut().for_each(|(_, val)| {
             if *val > 43200.0 {

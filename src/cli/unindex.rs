@@ -13,10 +13,10 @@ pub(super) fn subcommand() -> Command {
         )
 }
 
-pub fn process(arg_matches: &ArgMatches, entries: &Entries) -> anyhow::Result<()> {
+pub fn process(arg_matches: &ArgMatches, entries: &Entries) -> Result<()> {
     let name = arg_matches
         .get_one::<String>("entry")
-        .ok_or(anyhow!("Failed to parse entry to string"))?;
+        .ok_or_eyre("Failed to parse entry to string")?;
 
     let Some(mut entry) = entries.choose(&name.to_uppercase(), IndexOptions::Indexed) else {
         return Ok(());

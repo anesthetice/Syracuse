@@ -69,7 +69,7 @@ pub(super) fn subcommand() -> Command {
         )
 }
 
-pub fn process(arg_matches: &ArgMatches, entries: &Entries, today: &SyrDate) -> anyhow::Result<()> {
+pub fn process(arg_matches: &ArgMatches, entries: &Entries, today: &SyrDate) -> Result<()> {
     let entries: Vec<&Entry> = match arg_matches.get_many::<String>("exclude") {
         Some(entry_match) => {
             let excluded: Vec<Entry> = entry_match
@@ -130,13 +130,13 @@ pub fn process(arg_matches: &ArgMatches, entries: &Entries, today: &SyrDate) -> 
             };
 
             if start_date > end_date {
-                Err(anyhow!("Start date is more recent than end date"))?
+                bail!("Start date is more recent than end date");
             }
             SyrSpan::from_start_and_end(*start_date, *end_date)
                 .into_iter()
                 .collect()
         } else {
-            return Err(anyhow!("Invalid subcommand usage"));
+            bail!("Invalid subcommand usage");
         }
     };
 

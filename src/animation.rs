@@ -40,10 +40,10 @@ impl Animation {
             let _ = stdout
                 .write_all(&[l.as_bytes(), focus.as_bytes(), r.as_bytes()].concat())
                 .map_err(|err| {
-                    log::warn!("failed to write animation to stdout, {}", err);
+                    eprintln!("Warning: Failed to write animation to stdout, {}", err);
                 });
             let _ = stdout.flush().map_err(|err| {
-                log::warn!("failed to flush stdout, {}", err);
+                eprintln!("Warning: Failed to flush stdout, {}", err);
             });
             if self.index < self.frames.len() - 1 {
                 self.index += 1

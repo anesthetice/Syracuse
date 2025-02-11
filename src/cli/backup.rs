@@ -12,7 +12,7 @@ pub(super) fn subcommand() -> Command {
         )
 }
 
-pub fn process(arg_matches: &ArgMatches, entries: &Entries, dt: &DateTime) -> anyhow::Result<()> {
+pub fn process(arg_matches: &ArgMatches, entries: &Entries, dt: &DateTime) -> Result<()> {
     let folder = format!(
         "{:0>4}_{:0>2}_{:0>2}-{:0>2}_{:0>2}_{:0>2}/",
         dt.year(),

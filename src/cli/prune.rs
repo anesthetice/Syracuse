@@ -15,17 +15,17 @@ pub(super) fn subcommand() -> Command {
         )
 }
 
-pub fn process(arg_matches: &ArgMatches, mut entries: Entries) -> anyhow::Result<()> {
+pub fn process(arg_matches: &ArgMatches, mut entries: Entries) -> Result<()> {
     let cutoff_date: SyrDate = arg_matches
         .get_one::<String>("date")
-        .ok_or(anyhow::anyhow!("Failed to parse date as string"))?
+        .ok_or_eyre("Failed to parse date as string")?
         .try_into()?;
 
     let mut sum: usize = 0;
     for entry in entries.iter_mut() {
         sum += entry.prune(&cutoff_date)?;
     }
-    log::info!(
+    println!(
         "{} {} pruned",
         sum,
         (if sum == 1 { "bloc" } else { "blocs" }).bold()
