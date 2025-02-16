@@ -56,11 +56,11 @@ Commands:
   update-sub  Manually decrease the time tracked by an entry
   today       Display the time tracked today
   backup      Create a backup of all entries
-  unindex     Unindexes a specified entry
+  unindex     Unindex one or more entries
   reindex     Reindex one or more entries
   sum         Sum up the time tracked by entries
   prune       Discard all blocs that are less recent than the cutoff date
-  graph       Graphs the stored entries
+  graph       Graph the time tracked by entries in a given timeframe
   check-in    Check-in an entry
   check-out   Check-out an entry
   help        Print this message or the help of the given subcommand(s)
