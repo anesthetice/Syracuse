@@ -23,7 +23,7 @@ cargo build --release
 
 ### Installation
 
-* Follow the build instructions or download a [pre-compiled binary](/releases)
+* Follow the build instructions or download a [pre-compiled binary]([/releases](https://github.com/anesthetice/Syracuse/releases))
 * If you are running windows, place the binary wherever works for you and add the folder to your PATH
 * If you are running linux, place the binary wherever works for you and create a utility function to run it
 
