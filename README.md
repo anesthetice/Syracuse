@@ -1,6 +1,8 @@
 ## Syracuse
 
-A cross-platform, flexible, and easy to use cli-app written in rust meant to keep track of your day to day productivity.
+Syracuse is a simple and well-polished cli application used to keep track of your day to day productivity.
+
+It operates through an entry system, allowing you to start timers, check in and out, unindex old entries, generate graphs, etc. Everything is designed to be as effortless as possible, need a quick overview of your day? Just run `syracuse today`; want to break-down each entry's contribution as well? Simple, just set the flag for it `syracuse today -e`.
 
 ### Example
 ```
@@ -21,10 +23,9 @@ cargo build --release
 
 ### Installation
 
-* follow the build instructions or download a pre-compiled binary from the releases
-* place the binary file into the directory of your choice
-* (on windows) add the directory to your PATH env variables
-* (on linux) add a function to call syracuse in the shell of your choice
+* Follow the build instructions or download a [pre-compiled binary](/releases)
+* If you are running windows, place the binary wherever works for you and add the folder to your PATH
+* If you are running linux, place the binary wherever works for you and create a utility function to run it
 
 example for bash:
 ```
@@ -71,7 +72,7 @@ Options:
 
 ### Configuring
 
-When running syracuse for the first time, a default configuration file will be created.
+When running Syracuse for the first time, a default config file will be created.
 See [config.rs](/src/config.rs) for more info.
 
 ### Version 2
