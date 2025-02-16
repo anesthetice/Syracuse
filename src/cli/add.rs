@@ -1,5 +1,3 @@
-use color_eyre::eyre::bail;
-
 use super::*;
 
 pub(super) fn subcommand() -> Command {
@@ -11,8 +9,8 @@ pub(super) fn subcommand() -> Command {
                 .index(1)
                 .num_args(1..10)
                 .required(true)
-                .help("entry to add")
-                .long_help("entry to add\ne.g. 'add math-201 analysis' will add an entry titled 'MATH-201' with the alias 'ANALYSIS'")
+                .help("The name followed by any potential aliases of the entry to add to Syracuse")
+                .long_help("The name followed by any potential aliases of the entry to add to Syracuse\ne.g. 'add math-201 analysis' will add an entry titled 'MATH-201' with the alias 'ANALYSIS'")
                 .action(ArgAction::Set)
             )
 }
@@ -23,27 +21,18 @@ pub fn process(arg_matches: &ArgMatches, entries: &Entries) -> Result<()> {
         .ok_or_eyre("Failed to parse entry/entries to string/strings")?;
     let mut names: Vec<String> = names.map(|s| s.to_uppercase()).collect();
 
-    let separator_characters = config::Config::get().entry_file_name_separtor.as_str();
+    let separator = config::Config::get().entry_file_name_separtor.as_str();
 
-    for name in names.iter() {
-        if name.contains(separator_characters) {
-            bail!(
-                "Failed to add new entry, '{name}' conflicts with the separator characters: '{separator_characters}'",
-            );
-        }
+    if names.iter().any(|name| name.contains(separator)) {
+        bail!("Failed to add new entry, one of the names conflicts with the separator '{separator}'",);
     }
 
-    for entry in entries.iter() {
-        for name in names.iter() {
-            if !entry.is_new_entry_name_valid(name) {
-                bail!(
-                    "Failed to add new entry, '{name}' conflicts with an existing entry: '{entry}'"
-                );
-            }
-        }
+    if entries.iter().any(|entry| names.iter().any(|name| entry.is_new_entry_name_valid(name))) {
+        bail!("Failed to add new entry, one of the names conflicts with an existing entry.");
     }
 
-    Entry::new(names.remove(0), names).save()?;
-    println!("New entry added");
+    let entry = Entry::create(names.remove(0), names);
+    entry.save()?;
+    println!("{} Added '{}'", ARROW.green(), entry);
     Ok(())
 }

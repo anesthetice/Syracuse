@@ -38,7 +38,7 @@ pub struct Config {
     /// The animation frames, an array containing (left, right) strings.
     pub animation: AnimationBuilder,
 
-    /// Determines the directory where graphs are saved, an empty string defaults to current directory
+    /// Determines the directory where graphs are saved, an empty string defaults to current directory.
     pub graph_output_dir: String,
     /// Determines the interpolation method used, "Linear" and "Makima" are currently available.
     pub graph_interpolation_method: InterpolationMethod,
@@ -114,23 +114,17 @@ impl Config {
     pub fn load(filepath: &std::path::Path) -> Self {
         match Self::from_file(filepath) {
             Ok(config) => config,
-            Err(error) => {
-                eprintln!(
-                    "Warning: Failed to load configuration from file: '{}'",
-                    error
-                );
+            Err(err) => {
+                eprintln!("Warning: Failed to load configuration from file, '{}'", err);
                 let config = Self::default();
-                let Ok(downcast_error) = error.downcast::<std::io::Error>() else {
+                let Ok(downcast_error) = err.downcast::<std::io::Error>() else {
                     return config;
                 };
                 if downcast_error.kind() == std::io::ErrorKind::NotFound {
                     match config.to_file(filepath) {
-                        Ok(()) => eprintln!(
-                            "Warning: Created default configuration file, at: '{}'",
-                            filepath.display()
-                        ),
+                        Ok(()) => eprintln!("Warning: Created default configuration file, at '{}'", filepath.display()),
                         Err(error) => eprintln!(
-                            "Warning: Failed to create default configuration file, at: '{}', caused by: '{}'",
+                            "Warning: Failed to create default configuration file, at '{}', caused by '{}'",
                             filepath.display(),
                             error
                         ),
@@ -143,19 +137,12 @@ impl Config {
 
     fn from_file(filepath: &std::path::Path) -> Result<Self> {
         let mut buffer: Vec<u8> = Vec::new();
-        std::fs::OpenOptions::new()
-            .create(false)
-            .read(true)
-            .open(filepath)?
-            .read_to_end(&mut buffer)?;
+        std::fs::OpenOptions::new().create(false).read(true).open(filepath)?.read_to_end(&mut buffer)?;
         Ok(ijson::from_value(&serde_json::from_slice(&buffer)?)?)
     }
 
     fn to_file(&self, filepath: &std::path::Path) -> Result<()> {
-        let mut file = std::fs::OpenOptions::new()
-            .write(true)
-            .create_new(true)
-            .open(filepath)?;
+        let mut file = std::fs::OpenOptions::new().write(true).create_new(true).open(filepath)?;
 
         file.write_all(&serde_json::to_vec_pretty(&ijson::to_value(self)?)?)?;
         file.flush()?;

@@ -12,17 +12,18 @@ mod start;
 mod sum;
 mod today;
 mod unindex;
-mod update;
+mod update_add;
+mod update_sub;
 
 // Imports
 use crate::{
     animation, config,
     data::{
-        internal::{Entries, Entry, IndexOptions},
-        syrtime::{blocs::sec_to_pretty_string as stps, syrdate::SyrDate, syrspan::SyrSpan},
+        syrtime::{sec_to_pretty_string as stps, SyrDate, SyrSpan},
+        Entries, Entry, IndexOptions,
     },
     dirs::Dirs,
-    utils::{enter_clean_input_mode, exit_clean_input_mode, print_arrow, print_datearrow},
+    utils::{enter_clean_input_mode, exit_clean_input_mode, ARROW},
 };
 use clap::{command, value_parser, Arg, ArgAction, ArgGroup, ArgMatches, Command};
 use color_eyre::eyre::{bail, Context, OptionExt};
@@ -43,7 +44,8 @@ pub fn cli(entries: Entries, today: SyrDate, dt: DateTime) -> Result<()> {
         list::subcommand(),
         remove::subcommand(),
         start::subcommand(),
-        update::subcommand(),
+        update_add::subcommand(),
+        update_sub::subcommand(),
         today::subcommand(),
         backup::subcommand(),
         unindex::subcommand(),
@@ -62,7 +64,8 @@ pub fn cli(entries: Entries, today: SyrDate, dt: DateTime) -> Result<()> {
         Some(("list", arg_matches)) => list::process(arg_matches, &entries),
         Some(("remove", arg_matches)) => remove::process(arg_matches, &entries),
         Some(("start", arg_matches)) => start::process(arg_matches, &entries, &today),
-        Some(("update", arg_matches)) => update::process(arg_matches, &entries, &today),
+        Some(("update-add", arg_matches)) => update_add::process(arg_matches, &entries, &today),
+        Some(("update-sub", arg_matches)) => update_sub::process(arg_matches, &entries, &today),
         Some(("today", arg_matches)) => today::process(arg_matches, &entries, &today),
         Some(("backup", arg_matches)) => backup::process(arg_matches, &entries, &dt),
         Some(("unindex", arg_matches)) => unindex::process(arg_matches, &entries),

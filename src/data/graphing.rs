@@ -1,6 +1,6 @@
 use super::{
-    internal::{Entries, Entry},
-    syrtime::{syrdate::SyrDate, syrspan::SyrSpan},
+    syrtime::{SyrDate, SyrSpan},
+    Entries, Entry,
 };
 use crate::config::Config;
 use color_eyre::{eyre::bail, Result};
@@ -33,8 +33,8 @@ impl GraphMethods for Entry {
 pub fn graph(entries: Entries, date_span: SyrSpan) -> Result<()> {
     let filename = format!(
         "Graph_from_{}_to_{}.png",
-        SyrDate::from(date_span.start).to_string_with_formatting('-'),
-        SyrDate::from(date_span.end).to_string_with_formatting('-')
+        SyrDate::from(date_span.start).as_string_with_formatting('-'),
+        SyrDate::from(date_span.end).as_string_with_formatting('-')
     );
 
     let bg_rgb = rgb_translate(Config::get().graph_background_rgb);
@@ -43,12 +43,7 @@ pub fn graph(entries: Entries, date_span: SyrSpan) -> Result<()> {
     let fine_grid_rgb = rgb_translate(Config::get().graph_fine_grid_rgb);
     let marker_size = Config::get().graph_marker_size;
 
-    let marker_color_wheel: Vec<RGBColor> = Config::get()
-        .graph_marker_rgb
-        .clone()
-        .into_iter()
-        .map(rgb_translate)
-        .collect();
+    let marker_color_wheel: Vec<RGBColor> = Config::get().graph_marker_rgb.clone().into_iter().map(rgb_translate).collect();
     let mcw_len = marker_color_wheel.len();
     let mut mcw_idx: usize = 0;
 
@@ -62,10 +57,7 @@ pub fn graph(entries: Entries, date_span: SyrSpan) -> Result<()> {
         bail!("At minimum, a span of three days is required to build a graph");
     }
 
-    let mut superpoints: Vec<(String, Vec<(f64, f64)>)> = entries
-        .iter()
-        .map(|entry| (entry.name.clone(), entry.get_points(&dates)))
-        .collect();
+    let mut superpoints: Vec<(String, Vec<(f64, f64)>)> = entries.iter().map(|entry| (entry.name.clone(), entry.get_points(&dates))).collect();
 
     let mut sum_points: Vec<(f64, f64)> = superpoints[0].1.clone();
     for (_, points) in superpoints.iter().skip(1) {
@@ -73,12 +65,7 @@ pub fn graph(entries: Entries, date_span: SyrSpan) -> Result<()> {
             sum_points[idx].1 += point.1
         }
     }
-    let max_y = sum_points
-        .iter()
-        .map(|&(_, a)| a)
-        .max_by(|a, b| a.total_cmp(b))
-        .unwrap_or(6.0)
-        .ceil();
+    let max_y = sum_points.iter().map(|&(_, a)| a).max_by(|a, b| a.total_cmp(b)).unwrap_or(6.0).ceil();
     if max_y == 0.0 {
         eprintln!("Warning: No entries found within the given date span, returning early");
         return Ok(());
@@ -158,13 +145,9 @@ pub fn graph(entries: Entries, date_span: SyrSpan) -> Result<()> {
 
     while let Some((name, points)) = superpoints.pop() {
         let color = marker_color_wheel[mcw_idx];
-        ctx.draw_series(
-            points
-                .into_iter()
-                .map(|coord| Circle::new(coord, marker_size, color.stroke_width(2))),
-        )?
-        .label(name)
-        .legend(move |point| Circle::new(point, marker_size, color.stroke_width(2)));
+        ctx.draw_series(points.into_iter().map(|coord| Circle::new(coord, marker_size, color.stroke_width(2))))?
+            .label(name)
+            .legend(move |point| Circle::new(point, marker_size, color.stroke_width(2)));
 
         mcw_idx += 1;
         if mcw_idx == mcw_len {
@@ -175,13 +158,9 @@ pub fn graph(entries: Entries, date_span: SyrSpan) -> Result<()> {
 
     while let Some((name, points)) = superpoints.pop() {
         let color = marker_color_wheel[mcw_idx];
-        ctx.draw_series(
-            points
-                .into_iter()
-                .map(|coord| TriangleMarker::new(coord, marker_size, color.stroke_width(2))),
-        )?
-        .label(name)
-        .legend(move |coord| TriangleMarker::new(coord, marker_size, color.stroke_width(2)));
+        ctx.draw_series(points.into_iter().map(|coord| TriangleMarker::new(coord, marker_size, color.stroke_width(2))))?
+            .label(name)
+            .legend(move |coord| TriangleMarker::new(coord, marker_size, color.stroke_width(2)));
 
         mcw_idx += 1;
         if mcw_idx == mcw_len {
@@ -192,13 +171,9 @@ pub fn graph(entries: Entries, date_span: SyrSpan) -> Result<()> {
 
     while let Some((name, points)) = superpoints.pop() {
         let color = marker_color_wheel[mcw_idx];
-        ctx.draw_series(
-            points
-                .into_iter()
-                .map(|coord| Cross::new(coord, marker_size, color.stroke_width(2))),
-        )?
-        .label(name)
-        .legend(move |coord| Cross::new(coord, marker_size, color.stroke_width(2)));
+        ctx.draw_series(points.into_iter().map(|coord| Cross::new(coord, marker_size, color.stroke_width(2))))?
+            .label(name)
+            .legend(move |coord| Cross::new(coord, marker_size, color.stroke_width(2)));
 
         mcw_idx += 1;
         if mcw_idx == mcw_len {
@@ -263,10 +238,7 @@ pub mod interpolation {
 
     pub(super) fn makima(points: Vec<(f64, f64)>) -> Vec<(f64, f64)> {
         if points.len() < 5 {
-            eprintln!(
-                "Warning: A minimum of 5 points are required to use m-Akima interpolation, got {}",
-                points.len()
-            );
+            eprintln!("Warning: A minimum of 5 points are required to use m-Akima interpolation, got {}", points.len());
             return linear(points);
         }
         let n = points.len() - 1;
@@ -312,10 +284,7 @@ pub mod interpolation {
                 let step_size = (x_ip1 - x_i) / nb_points as f64;
                 let mut x = x_i;
                 while x < x_ip1 {
-                    let y = a_i
-                        + b_i * (x - x_i)
-                        + c_i * (x - x_i) * (x - x_i)
-                        + d_i * (x - x_i) * (x - x_i) * (x - x_i);
+                    let y = a_i + b_i * (x - x_i) + c_i * (x - x_i) * (x - x_i) + d_i * (x - x_i) * (x - x_i) * (x - x_i);
                     local_points.push((x, if y < 0.0 { 0.0 } else { y }));
                     x += step_size;
                 }

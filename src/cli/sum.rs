@@ -3,36 +3,36 @@ use super::*;
 pub(super) fn subcommand() -> Command {
     Command::new("sum")
         .aliases(["total", "tally"])
-        .about("Sums up the time tracked by entries")
+        .about("Sum up the time tracked by entries")
         .long_about("This subcommand is used to sum up the time tracked by specified entries across a span of dates\naliases: 'total', 'tally'")
         .arg(
             Arg::new("exclude")
-                .help("entry/entries to exclude")
+                .help("The entry/entries to exclude")
                 .required(false)
                 .short('x')
                 .long("exclude")
                 .num_args(1..20)
-                .action(ArgAction::Set)
+                .action(ArgAction::Set),
         )
         .arg(
             Arg::new("explicit")
-                .help("breaks down each entry's contribution to the total time")
+                .help("Breaks down each entry's contribution to the total time")
                 .required(false)
                 .short('e')
                 .short_alias('f')
                 .long("explicit")
                 .alias("full")
-                .action(ArgAction::SetTrue)
+                .action(ArgAction::SetTrue),
         )
         .arg(
             Arg::new("days-back")
-                .help("number of days back included")
+                .help("The number of days back included")
                 .short('d')
                 .long("days")
                 .alias("days-back")
                 .value_parser(value_parser!(usize))
                 .action(ArgAction::Set)
-                .group("logic-group")
+                .group("days-back-group"),
         )
         .arg(
             Arg::new("start-date")
@@ -41,6 +41,7 @@ pub(super) fn subcommand() -> Command {
                 .long("start")
                 .alias("start-date")
                 .action(ArgAction::Set)
+                .value_parser(clap::value_parser!(SyrDate)),
         )
         .arg(
             Arg::new("end-date")
@@ -49,32 +50,15 @@ pub(super) fn subcommand() -> Command {
                 .long("end")
                 .alias("end-date")
                 .action(ArgAction::Set)
+                .value_parser(clap::value_parser!(SyrDate)),
         )
-        .arg(
-            Arg::new("all")
-                .help("everything everywhere all at once")
-                .short('a')
-                .long("all")
-                .alias("EEAATO")
-                .group("all-group")
-                .action(ArgAction::SetTrue)
-        )
-        .group(
-            ArgGroup::new("logic-group")
-                .conflicts_with("start-date")
-        )
-        .group(
-            ArgGroup::new("all-group")
-                .conflicts_with_all(["days-back", "start-date", "end-date"])
-        )
+        .group(ArgGroup::new("days-back-group").conflicts_with("start-date"))
 }
 
 pub fn process(arg_matches: &ArgMatches, entries: &Entries, today: &SyrDate) -> Result<()> {
     let entries: Vec<&Entry> = match arg_matches.get_many::<String>("exclude") {
         Some(entry_match) => {
-            let excluded: Vec<Entry> = entry_match
-                .flat_map(|s| entries.choose(s.to_uppercase().as_str(), IndexOptions::All))
-                .collect();
+            let excluded: Vec<Entry> = entry_match.flat_map(|s| entries.choose(&s.to_uppercase(), IndexOptions::All)).collect();
             entries
                 .iter()
                 .filter(|entry| {
@@ -90,74 +74,62 @@ pub fn process(arg_matches: &ArgMatches, entries: &Entries, today: &SyrDate) -> 
         None => entries.as_inner(),
     };
 
-    if arg_matches.get_flag("all") {
-        let mut total_hours: f64 = 0.0;
-        for entry in entries.iter() {
-            let hours = entry.get_bloc_duration_total_as_hours();
-            total_hours += hours;
-            if arg_matches.get_flag("explicit") && hours != 0.0 {
-                println!("{:<15} :   {:.3}", entry.get_name(), hours)
-            }
-        }
-
-        if arg_matches.get_flag("explicit") {
-            print_arrow(format!("{:.3}", total_hours).bold(), "green");
-        } else {
-            println!("{}", format!("{:.3}", total_hours).bold());
-        }
-
-        return Ok(());
-    }
-
-    let dates: Vec<SyrDate> = {
+    let date_span: Vec<SyrDate> = {
         // days-back + specified end-date or not
         if let Some(num) = arg_matches.get_one::<usize>("days-back") {
-            let end_date = match arg_matches.get_one::<String>("end-date") {
-                Some(string) => SyrDate::try_from(string).unwrap_or(*today),
-                None => *today,
-            };
+            let end_date = *arg_matches.get_one::<SyrDate>("end-date").unwrap_or(today);
             SyrSpan::from_end_and_days_back(*end_date, *num as i64)
-                .into_iter()
-                .collect()
         }
         // start-date + specified end-date or not
-        else if let Some(start_date) = arg_matches.get_one::<String>("start-date") {
-            let start_date = SyrDate::try_from(start_date.as_str())?;
+        else if let Some(start_date) = arg_matches.get_one::<SyrDate>("start-date") {
+            let end_date = *arg_matches.get_one::<SyrDate>("end-date").unwrap_or(today);
 
-            let end_date = match arg_matches.get_one::<String>("end-date") {
-                Some(string) => SyrDate::try_from(string.as_str()).unwrap_or(*today),
-                None => *today,
-            };
-
-            if start_date > end_date {
+            if *start_date > end_date {
                 bail!("Start date is more recent than end date");
             }
-            SyrSpan::from_start_and_end(*start_date, *end_date)
-                .into_iter()
-                .collect()
+            SyrSpan::from_start_and_end(**start_date, *end_date)
         } else {
             bail!("Invalid subcommand usage");
         }
-    };
-
-    let mut total_hours: f64 = 0.0;
-    for entry in entries.iter() {
-        let hours = dates
-            .iter()
-            .map(|date| entry.get_bloc_duration(date))
-            .filter(|x| *x != 0.0)
-            .fold(0_f64, |acc, x| acc + x / 3600.0);
-        total_hours += hours;
-        if arg_matches.get_flag("explicit") && hours != 0.0 {
-            println!("{:<15} :   {:.3}", entry.get_name(), hours)
-        }
     }
+    .into_iter()
+    .collect();
 
     if arg_matches.get_flag("explicit") {
-        println!();
-        print_arrow(format!("{:.3}", total_hours).bold(), "green");
+        let pad = entries
+            .iter()
+            .map(|entry| entry.name.len() + entry.aliases.first().map(|alias| alias.len()).unwrap_or(0))
+            .max()
+            .unwrap_or(1_usize)
+            + 11;
+        println!("{pad}");
+
+        let total_hours: f64 = entries
+            .iter()
+            .map(|entry| {
+                let hours: f64 = date_span
+                    .iter()
+                    .map(|date| entry.get_bloc_duration(date))
+                    .filter(|x| *x != 0.0)
+                    .fold(0_f64, |acc, x| acc + x / 3600.0);
+                println!("{:<width$} : {:.2}", entry.display_name_and_first_alias(), hours, width = pad);
+                hours
+            })
+            .sum();
+        println!("{} {} Hours", ARROW.green(), format!("{:.2}", total_hours).bold());
     } else {
-        println!("{}", format!("{:.3}", total_hours).bold());
+        let total_hours: f64 = entries
+            .iter()
+            .map(|entry| {
+                date_span
+                    .iter()
+                    .map(|date| entry.get_bloc_duration(date))
+                    .filter(|x| *x != 0.0)
+                    .fold(0_f64, |acc, x| acc + x / 3600.0)
+            })
+            .sum();
+
+        println!("{} Hours", format!("{:.2}", total_hours).bold());
     }
 
     Ok(())

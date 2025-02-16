@@ -2,25 +2,25 @@ use super::*;
 
 pub(super) fn subcommand() -> Command {
     Command::new("reindex")
-        .about("Reindexes a specified entry")
-        .long_about("This subcommand is used to reindex a specified unindexed entry")
+        .about("Reindex one or more entries")
+        .long_about("This subcommand is used to reindex one or more specified entries")
         .arg(
-            Arg::new("entry")
+            Arg::new("entries")
                 .index(1)
                 .required(true)
-                .help("entry to unindex")
+                .help("The entries to reindex")
+                .num_args(1..10)
                 .action(ArgAction::Set),
         )
 }
 
 pub fn process(arg_matches: &ArgMatches, entries: &Entries) -> Result<()> {
-    let name = arg_matches
-        .get_one::<String>("entry")
-        .ok_or_eyre("Failed to parse entry to string")?;
-
-    let Some(mut entry) = entries.choose(&name.to_uppercase(), IndexOptions::Unindexed) else {
-        return Ok(());
-    };
-
-    entry.inverse_indexability()
+    for mut entry in arg_matches
+        .get_many::<String>("entries")
+        .ok_or_eyre("Failed to parse entry to string")?
+        .filter_map(|name| entries.choose(&name.to_uppercase(), IndexOptions::Unindexed))
+    {
+        entry.inverse_indexability()?;
+    }
+    Ok(())
 }

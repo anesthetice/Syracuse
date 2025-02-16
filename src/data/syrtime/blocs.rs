@@ -1,12 +1,10 @@
+use super::syrdate::SyrDate;
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
-use super::syrdate::SyrDate;
-
-// u128 representing nanoseconds
 #[derive(Clone, Default, Serialize, Deserialize)]
-pub struct Blocs(BTreeMap<SyrDate, f64>);
+pub struct Blocs(pub BTreeMap<SyrDate, f64>);
 
 impl std::ops::Deref for Blocs {
     type Target = BTreeMap<SyrDate, f64>;
@@ -33,7 +31,7 @@ pub fn sec_to_pretty_string(mut secs: f64) -> String {
 
     let milis = (secs * 100.0).floor() as u32;
 
-    format!("{:0>2}:{:0>2}:{:0>2}.{:0>3}", hours, mins, fsecs, milis)
+    format!("{:0>2}:{:0>2}:{:0>2}.{:0>2}", hours, mins, fsecs, milis)
 }
 
 impl std::fmt::Display for Blocs {
@@ -52,13 +50,5 @@ impl std::fmt::Display for Blocs {
                     }
                 })
         )
-    }
-}
-
-impl Blocs {
-    pub fn prune(&mut self, cutoff_date: &SyrDate) -> usize {
-        let _tmp = self.len();
-        self.retain(|key, _| key >= cutoff_date);
-        _tmp - self.len()
     }
 }

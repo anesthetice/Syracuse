@@ -4,20 +4,12 @@ pub(super) fn subcommand() -> Command {
     Command::new("start")
         .aliases(["s", "r", "run", "go", "launch", "begin"])
         .about("Start the daily stopwatch for an entry")
-        .long_about("This subcommand is used to start counting up the time spent today on the given entry, will progressively update the associated file\naliases: 's', 'r', 'run', 'go', 'launch', 'begin'")
-        .arg(
-            Arg::new("entry")
-                .index(1)
-                .required(true)
-                .help("entry to start")
-                .action(ArgAction::Set),
-        )
+        .long_about("This subcommand is used to start the stopwatch for the specified entry\naliases: 's', 'r', 'run', 'go', 'launch', 'begin'")
+        .arg(Arg::new("entry").index(1).required(true).help("The entry to start").action(ArgAction::Set))
 }
 
 pub fn process(arg_matches: &ArgMatches, entries: &Entries, today: &SyrDate) -> Result<()> {
-    let name = arg_matches
-        .get_one::<String>("entry")
-        .ok_or_eyre("Failed to parse entry to string")?;
+    let name = arg_matches.get_one::<String>("entry").ok_or_eyre("Failed to parse entry to string")?;
 
     let Some(mut entry) = entries.choose(&name.to_uppercase(), IndexOptions::Indexed) else {
         return Ok(());
@@ -25,8 +17,7 @@ pub fn process(arg_matches: &ArgMatches, entries: &Entries, today: &SyrDate) -> 
     // start of initialization
     let mut file_save_error_counter: u8 = 0;
     let frame_period = config::Config::get().frame_period;
-    let mut animation =
-        animation::Animation::construct(config::Config::get().animation.clone(), 12, 12);
+    let mut animation = animation::Animation::construct(config::Config::get().animation.clone(), 12, 12);
     let start = Instant::now();
     let mut instant = start;
     let mut autosave_instant = start;
@@ -35,16 +26,11 @@ pub fn process(arg_matches: &ArgMatches, entries: &Entries, today: &SyrDate) -> 
     enter_clean_input_mode();
     // end of initialization
     loop {
-        animation.step(
-            &mut stdout,
-            &stps(instant.duration_since(start).as_secs_f64()),
-        );
+        animation.step(&mut stdout, &stps(instant.duration_since(start).as_secs_f64()));
         if event::poll(std::time::Duration::from_millis(frame_period))? {
             if let event::Event::Key(key) = event::read()? {
                 if key.kind == event::KeyEventKind::Press
-                    && (key.code == event::KeyCode::Char('q')
-                        || key.code == event::KeyCode::Char('Q')
-                        || key.code == event::KeyCode::Enter)
+                    && (key.code == event::KeyCode::Char('q') || key.code == event::KeyCode::Char('Q') || key.code == event::KeyCode::Enter)
                 {
                     break;
                 }

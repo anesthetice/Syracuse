@@ -1,5 +1,6 @@
-use color_eyre::eyre::{bail, eyre, Context};
+use color_eyre::eyre::{bail, Context, OptionExt};
 use serde::{de::Visitor, Deserialize, Serialize};
+use std::str::FromStr;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct SyrDate(jiff::civil::Date);
@@ -8,25 +9,14 @@ impl SyrDate {
     pub fn new(date: jiff::civil::Date) -> Self {
         Self(date)
     }
-    pub fn to_string_with_formatting(&self, sep_char: char) -> String {
-        format!(
-            "{:0>2}{sep_char}{:0>2}{sep_char}{:0>4}",
-            self.day(),
-            self.month(),
-            self.year()
-        )
+    pub fn as_string_with_formatting(&self, sep_char: char) -> String {
+        format!("{:0>2}{sep_char}{:0>2}{sep_char}{:0>4}", self.day(), self.month(), self.year())
     }
 }
 
 impl std::fmt::Display for SyrDate {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "{:0>2}/{:0>2}/{:0>4}",
-            self.day(),
-            self.month(),
-            self.year()
-        )
+        write!(f, "{:0>2}/{:0>2}/{:0>4}", self.day(), self.month(), self.year())
     }
 }
 
@@ -36,32 +26,40 @@ impl From<jiff::civil::Date> for SyrDate {
     }
 }
 
-impl TryFrom<&str> for SyrDate {
-    type Error = color_eyre::eyre::Error;
-    fn try_from(value: &str) -> Result<Self, Self::Error> {
+impl FromStr for SyrDate {
+    type Err = color_eyre::eyre::Error;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
         let split_char = ['/', '.', '-', '_']
             .into_iter()
-            .filter(|char| value.contains(*char))
+            .filter(|char| s.contains(*char))
             .nth(0)
-            .ok_or_else(|| {
-                eyre!("Failed to parse date, no separator character detected, ('/', '.', '-', '_')")
-            })?;
-        let input: Vec<&str> = value.split(split_char).collect();
+            .ok_or_eyre("Failed to parse date, no separator character detected, ('/', '.', '-', '_')")?;
+        let input: Vec<&str> = s.split(split_char).collect();
         if input.len() != 3 {
             bail!("Failed to parse date, invalid date format, expected dd/mm/yyyy, or with '/' alternatives such as '.', '_', or '-'");
         }
-        Ok(Self::from(jiff::civil::Date::new(
-            input[2].parse::<i16>().context("Failed to parse date, invalid year")?,
-            input[1].parse::<i8>().context("Failed to parse date, invalid month")?,
-            input[0].parse::<i8>().context("Failed to parse date, invalid day")?,
-        ).context("Failed to parse date, invalid date format, expected dd/mm/yyyy, or with '/' alternatives such as '.', '_', or '-'")?))
+        Ok(Self::from(
+            jiff::civil::Date::new(
+                input[2].parse::<i16>().context("Failed to parse date, invalid year")?,
+                input[1].parse::<i8>().context("Failed to parse date, invalid month")?,
+                input[0].parse::<i8>().context("Failed to parse date, invalid day")?,
+            )
+            .context("Failed to parse date, invalid date format, expected dd/mm/yyyy, or with '/' alternatives such as '.', '_', or '-'")?,
+        ))
+    }
+}
+
+impl TryFrom<&str> for SyrDate {
+    type Error = color_eyre::eyre::Error;
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        Self::from_str(value)
     }
 }
 
 impl TryFrom<&String> for SyrDate {
     type Error = color_eyre::eyre::Error;
     fn try_from(value: &String) -> Result<Self, Self::Error> {
-        Self::try_from(value.as_str())
+        Self::from_str(value)
     }
 }
 
@@ -98,7 +96,7 @@ impl std::ops::DerefMut for SyrDate {
 
 struct SyrDateVisitor;
 
-impl<'a> Visitor<'a> for SyrDateVisitor {
+impl Visitor<'_> for SyrDateVisitor {
     type Value = SyrDate;
 
     fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {

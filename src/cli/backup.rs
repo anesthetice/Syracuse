@@ -2,14 +2,9 @@ use super::*;
 
 pub(super) fn subcommand() -> Command {
     Command::new("backup")
-        .about("Backup entries")
-        .long_about("This subcommand is used to backup all entries to a directory specified in the configuration file or directly provided by the user")
-        .arg(
-            Arg::new("path")
-                .help("specified path")
-                .index(1)
-                .action(ArgAction::Set)
-        )
+        .about("Create a backup of all entries")
+        .long_about("This subcommand is used to backup all entries to a directory specified in the configuration file or passed as an argument")
+        .arg(Arg::new("path").help("The path to back up to").index(1).action(ArgAction::Set))
 }
 
 pub fn process(arg_matches: &ArgMatches, entries: &Entries, dt: &DateTime) -> Result<()> {
@@ -29,7 +24,14 @@ pub fn process(arg_matches: &ArgMatches, entries: &Entries, dt: &DateTime) -> Re
     }
     .join(folder);
 
-    std::fs::create_dir(&path).context("Failed to create backup directory")?;
-    entries.backup(path);
+    std::fs::create_dir(&path).wrap_err("Failed to create backup directory")?;
+
+    for entry in entries.iter() {
+        if let Err(error) = entry.save_to_file(&path.join(entry.get_filestem() + ".json")) {
+            eprintln!("Warning: Failed to back up an entry, '{error}'")
+        }
+    }
+
+    println!("{} Created backup at '{}'", ARROW.green(), path.canonicalize().unwrap_or(path).display());
     Ok(())
 }
