@@ -2,8 +2,9 @@ use super::*;
 
 pub(super) fn subcommand() -> Command {
     Command::new("graph")
-        .about("Graphs the stored entries")
-        .long_about("This subcommand is used to graph the stored entries within a specified time frame")
+        .aliases(["plot", "draw"])
+        .about("Graph the time tracked by entries in a given timeframe")
+        .long_about("This subcommand is used to graph the time tracked by entries in the provided timeframe\naliases: 'plot', 'draw'")
         .arg(
             Arg::new("days-back")
                 .help("The number of days back")

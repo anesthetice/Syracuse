@@ -2,8 +2,8 @@ use super::*;
 
 pub(super) fn subcommand() -> Command {
     Command::new("unindex")
-        .about("Unindexes a specified entry")
-        .long_about("This subcommand is used to unindex a specified entry, meaning it will not appear within the choice pool")
+        .about("Unindex one or more entries")
+        .long_about("This subcommand is used to unindex one or more specified entries\nUnindexed entries do not show up within the choice pool")
         .arg(
             Arg::new("entries")
                 .index(1)
