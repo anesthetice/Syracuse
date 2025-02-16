@@ -43,31 +43,23 @@ pub fn smith_waterman(seq_1: &str, seq_2: &str) -> f64 {
     let (mut i, mut j) = largest_score_index;
     let mut score = total_score;
     while score != 0 {
-        score = [
-            (i, j - 1, matrix[i][j - 1]),
-            (i - 1, j, matrix[i - 1][j]),
-            (i - 1, j - 1, matrix[i - 1][j - 1]),
-        ]
-        .into_iter()
-        .fold(0, |acc, (_i, _j, val)| {
-            if val > acc {
-                i = _i;
-                j = _j;
-                val
-            } else {
-                acc
-            }
-        });
+        score = [(i, j - 1, matrix[i][j - 1]), (i - 1, j, matrix[i - 1][j]), (i - 1, j - 1, matrix[i - 1][j - 1])]
+            .into_iter()
+            .fold(0, |acc, (_i, _j, val)| {
+                if val > acc {
+                    i = _i;
+                    j = _j;
+                    val
+                } else {
+                    acc
+                }
+            });
         total_score += score;
     }
 
     // normalization
     let max_score = {
-        let val = [match_score, mismatch_penalty, gap_penalty]
-            .into_iter()
-            .max()
-            .unwrap()
-            .abs();
+        let val = [match_score, mismatch_penalty, gap_penalty].into_iter().max().unwrap().abs();
         let n = std::cmp::min(seq_1.len(), seq_2.len()) as i16 * val;
         (n * (n + 1)) / 2
     };
@@ -140,11 +132,7 @@ pub fn needleman_wunsch(seq_1: &str, seq_2: &str) -> f64 {
     match total_score {
         1.. => {
             let max_pos_score = {
-                let val = [match_score, mismatch_penalty, gap_penalty]
-                    .into_iter()
-                    .max()
-                    .unwrap()
-                    .abs();
+                let val = [match_score, mismatch_penalty, gap_penalty].into_iter().max().unwrap().abs();
                 let n = std::cmp::max(seq_1.len(), seq_2.len()) as i16 * val;
                 (n * (n + 1)) / 2
             };
@@ -153,11 +141,7 @@ pub fn needleman_wunsch(seq_1: &str, seq_2: &str) -> f64 {
         0 => 0.0,
         ..=-1 => {
             let max_neg_score = {
-                let val = [match_score, mismatch_penalty, gap_penalty]
-                    .into_iter()
-                    .min()
-                    .unwrap()
-                    .abs();
+                let val = [match_score, mismatch_penalty, gap_penalty].into_iter().min().unwrap().abs();
                 let n = std::cmp::max(seq_1.len(), seq_2.len()) as i16 * val;
                 (n * (n + 1)) / 2
             };

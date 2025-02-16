@@ -101,8 +101,7 @@ pub fn process(arg_matches: &ArgMatches, entries: &Entries, today: &SyrDate) -> 
             .map(|entry| entry.name.len() + entry.aliases.first().map(|alias| alias.len()).unwrap_or(0))
             .max()
             .unwrap_or(1_usize)
-            + 11;
-        println!("{pad}");
+            + 2;
 
         let total_hours: f64 = entries
             .iter()
@@ -112,6 +111,11 @@ pub fn process(arg_matches: &ArgMatches, entries: &Entries, today: &SyrDate) -> 
                     .map(|date| entry.get_bloc_duration(date))
                     .filter(|x| *x != 0.0)
                     .fold(0_f64, |acc, x| acc + x / 3600.0);
+                let pad = if !entry.aliases.is_empty() {
+                    pad + 8 // .dim() adds 4 bytes to the start and the end of the string
+                } else {
+                    pad
+                };
                 println!("{:<width$} : {:.2}", entry.display_name_and_first_alias(), hours, width = pad);
                 hours
             })

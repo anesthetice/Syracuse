@@ -41,7 +41,11 @@ pub fn process(arg_matches: &ArgMatches, entries: &Entries) -> Result<()> {
 
     let timestamp = serde_json::to_vec(&ijson::to_value(jiff::Timestamp::now())?)?;
 
-    std::fs::OpenOptions::new().write(true).create_new(true).open(&filepath)?.write_all(&timestamp)?;
+    std::fs::OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(&filepath)?
+        .write_all(&timestamp)?;
 
     Ok(())
 }
