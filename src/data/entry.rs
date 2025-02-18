@@ -163,4 +163,11 @@ impl Entry {
             None => self.name.clone(),
         }
     }
+
+    pub fn print_name_and_first_alias(&self) -> String {
+        match self.aliases.first() {
+            Some(alias) => format!("{}; {}", self.name, alias),
+            None => self.name.clone(),
+        }
+    }
 }

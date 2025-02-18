@@ -19,7 +19,7 @@ mod update_sub;
 use crate::{
     animation, config,
     data::{
-        syrtime::{sec_to_pretty_string as stps, SyrDate, SyrSpan},
+        syrtime::{stps, SyrDate, SyrSpan},
         Entries, Entry, IndexOptions,
     },
     dirs::Dirs,

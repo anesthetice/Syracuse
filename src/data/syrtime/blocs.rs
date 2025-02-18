@@ -19,19 +19,15 @@ impl std::ops::DerefMut for Blocs {
     }
 }
 
-pub fn sec_to_pretty_string(mut secs: f64) -> String {
-    let sfloor = secs.floor();
-    secs -= sfloor;
-    let mut fsecs = sfloor as u32;
+pub fn seconds_to_pretty_string(seconds: f64) -> String {
+    let total_cs = (seconds * 100.0) as u64;
 
-    let hours = fsecs / 3600;
-    fsecs -= hours * 3600;
-    let mins = fsecs / 60;
-    fsecs -= mins * 60;
+    let hours = total_cs / 360_000;
+    let minutes = (total_cs % 360_000) / 6_000;
+    let seconds = (total_cs % 6_000) / 100;
+    let centis = total_cs % 100;
 
-    let milis = (secs * 100.0).floor() as u32;
-
-    format!("{:0>2}:{:0>2}:{:0>2}.{:0>2}", hours, mins, fsecs, milis)
+    format!("{:0>2}:{:0>2}:{:0>2}.{:0>2}", hours, minutes, seconds, centis)
 }
 
 impl std::fmt::Display for Blocs {
@@ -44,9 +40,9 @@ impl std::fmt::Display for Blocs {
                 .enumerate()
                 .fold(String::new(), |acc, (idx, (date, duration))| {
                     if self.len() != idx + 1 {
-                        acc + &date.to_string() + ": " + &sec_to_pretty_string(*duration) + ", "
+                        acc + &date.to_string() + ": " + &seconds_to_pretty_string(*duration) + ", "
                     } else {
-                        acc + &date.to_string() + ": " + &sec_to_pretty_string(*duration)
+                        acc + &date.to_string() + ": " + &seconds_to_pretty_string(*duration)
                     }
                 })
         )

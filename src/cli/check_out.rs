@@ -75,7 +75,13 @@ pub fn process(arg_matches: &ArgMatches, entries: &Entries, today: &SyrDate) -> 
 
     let past = entry.get_bloc_duration(today);
     entry.increase_bloc_duration(today, elapsed);
-    println!("{} | {} {} {}", today, stps(past), ARROW.green(), stps(entry.get_bloc_duration(today)));
+    println!(
+        "{} {} {} {}",
+        stps(past),
+        ARROW.green(),
+        stps(past + elapsed),
+        format!("| ({} - {})", entry.print_name_and_first_alias(), today).dim()
+    );
     entry.save()?;
     std::fs::remove_file(&filepath)?;
 
