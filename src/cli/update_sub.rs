@@ -77,7 +77,7 @@ pub fn process(arg_matches: &ArgMatches, entries: &Entries, today: &SyrDate) -> 
     let past = entry.get_bloc_duration(&date);
     entry.decrease_bloc_duration(&date, total_diff);
     entry.save()?;
-    println!("{} | {} {} {}", &date, stps(past), ARROW.red(), stps(entry.get_bloc_duration(&date)));
+    println!("{} | {} {} {}", &date, past.s_str(), ARROW.red(), entry.get_bloc_duration(&date).s_str());
 
     Ok(())
 }

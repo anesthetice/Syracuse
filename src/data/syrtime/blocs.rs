@@ -1,4 +1,4 @@
-use super::syrdate::SyrDate;
+use crate::data::syrtime::{SyrDate, TimeFormatting};
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
@@ -19,17 +19,6 @@ impl std::ops::DerefMut for Blocs {
     }
 }
 
-pub fn seconds_to_pretty_string(seconds: f64) -> String {
-    let total_cs = (seconds * 100.0) as u64;
-
-    let hours = total_cs / 360_000;
-    let minutes = (total_cs % 360_000) / 6_000;
-    let seconds = (total_cs % 6_000) / 100;
-    let centis = total_cs % 100;
-
-    format!("{:0>2}:{:0>2}:{:0>2}.{:0>2}", hours, minutes, seconds, centis)
-}
-
 impl std::fmt::Display for Blocs {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
@@ -37,14 +26,8 @@ impl std::fmt::Display for Blocs {
             "[{}]",
             self.iter()
                 .sorted_by(|(a, _), (b, _)| { a.cmp(b) })
-                .enumerate()
-                .fold(String::new(), |acc, (idx, (date, duration))| {
-                    if self.len() != idx + 1 {
-                        acc + &date.to_string() + ": " + &seconds_to_pretty_string(*duration) + ", "
-                    } else {
-                        acc + &date.to_string() + ": " + &seconds_to_pretty_string(*duration)
-                    }
-                })
+                .map(|(date, duration)| date.to_string() + "-" + &duration.s_str())
+                .join(", ")
         )
     }
 }

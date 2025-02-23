@@ -1,9 +1,11 @@
-use jiff::{civil::Date, Span};
+use jiff::{ToSpan, civil::Date};
 
 use super::syrdate::SyrDate;
 
 pub struct SyrSpan {
+    /// The start date, inclusive
     pub start: Date,
+    /// The end date, inclusive
     pub end: Date,
 }
 
@@ -11,20 +13,11 @@ impl SyrSpan {
     pub fn from_start_and_end(start: Date, end: Date) -> Self {
         Self { start, end }
     }
-    pub fn from_start_and_days_forward(start: Date, days: i64) -> Self {
-        Self {
-            start,
-            end: start.saturating_add(Span::new().days(days)),
-        }
-    }
     pub fn from_end_and_days_back(end: Date, days: i64) -> Self {
         Self {
-            start: end.saturating_sub(Span::new().days(days)),
+            start: end.saturating_sub(days.days()),
             end,
         }
-    }
-    pub fn contains(&self, date: &Date) -> bool {
-        (&self.start <= date) && (date <= &self.end)
     }
 }
 
@@ -43,9 +36,10 @@ impl Iterator for SyrSpanIterator {
     type Item = SyrDate;
 
     fn next(&mut self) -> Option<Self::Item> {
-        if self.pointer < self.end {
-            self.pointer = self.pointer.tomorrow().unwrap();
-            Some(self.pointer.into())
+        if self.pointer <= self.end {
+            let date = self.pointer.into();
+            self.pointer = self.pointer.tomorrow().ok()?;
+            Some(date)
         } else {
             None
         }

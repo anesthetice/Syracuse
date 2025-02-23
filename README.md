@@ -63,6 +63,7 @@ Commands:
   graph       Graph the time tracked by entries in a given timeframe
   check-in    Check-in an entry
   check-out   Check-out an entry
+  week        Display the time tracked this week
   help        Print this message or the help of the given subcommand(s)
 
 Options:

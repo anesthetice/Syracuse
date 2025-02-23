@@ -14,24 +14,25 @@ mod today;
 mod unindex;
 mod update_add;
 mod update_sub;
+mod week;
 
 // Imports
 use crate::{
     animation, config,
     data::{
-        syrtime::{stps, SyrDate, SyrSpan},
         Entries, Entry, IndexOptions,
+        syrtime::{SyrDate, SyrSpan, TimeFormatting, WeekdayFormatting},
     },
     dirs::Dirs,
-    utils::{enter_clean_input_mode, exit_clean_input_mode, ARROW},
+    utils::{ARROW, enter_clean_input_mode, exit_clean_input_mode},
 };
-use clap::{command, value_parser, Arg, ArgAction, ArgGroup, ArgMatches, Command};
-use color_eyre::eyre::{bail, Context, OptionExt};
+use clap::{Arg, ArgAction, ArgGroup, ArgMatches, Command, command, value_parser};
 use color_eyre::Result;
+use color_eyre::eyre::{Context, OptionExt, bail};
 use crossterm::{event, style::Stylize};
 use itertools::Itertools;
-use jiff::civil::DateTime;
 use jiff::Span;
+use jiff::civil::{DateTime, Weekday};
 use std::{
     io::{Read, Write},
     path::PathBuf,
@@ -55,6 +56,7 @@ pub fn cli(entries: Entries, today: SyrDate, dt: DateTime) -> Result<()> {
         graph::subcommand(),
         check_in::subcommand(),
         check_out::subcommand(),
+        week::subcommand(),
     ]);
 
     let arg_matches = command.get_matches();
@@ -75,6 +77,7 @@ pub fn cli(entries: Entries, today: SyrDate, dt: DateTime) -> Result<()> {
         Some(("graph", arg_matches)) => graph::process(arg_matches, entries, &today),
         Some(("check-in", arg_matches)) => check_in::process(arg_matches, &entries),
         Some(("check-out", arg_matches)) => check_out::process(arg_matches, &entries, &today),
+        Some(("week", arg_matches)) => week::process(arg_matches, &entries, &today),
         _ => Ok(()),
     }
 }

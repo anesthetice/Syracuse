@@ -17,7 +17,7 @@ pub fn process(arg_matches: &ArgMatches, entries: &Entries, today: &SyrDate) -> 
     // start of initialization
     let mut file_save_error_counter: u8 = 0;
     let frame_period = config::Config::get().frame_period;
-    let mut animation = animation::Animation::construct(config::Config::get().animation.clone(), 12, 12);
+    let mut animation = animation::Animation::construct(config::Config::get().animation.clone(), f64::MS_STR_LENGTH, f64::MS_STR_LENGTH);
     let start = Instant::now();
     let mut instant = start;
     let mut autosave_instant = start;
@@ -26,7 +26,7 @@ pub fn process(arg_matches: &ArgMatches, entries: &Entries, today: &SyrDate) -> 
     enter_clean_input_mode();
     // end of initialization
     loop {
-        animation.step(&mut stdout, &stps(instant.duration_since(start).as_secs_f64()));
+        animation.step(&mut stdout, &instant.duration_since(start).as_secs_f64().ms_str());
         if event::poll(std::time::Duration::from_millis(frame_period))? {
             if let event::Event::Key(key) = event::read()? {
                 if key.kind == event::KeyEventKind::Press
@@ -52,6 +52,5 @@ pub fn process(arg_matches: &ArgMatches, entries: &Entries, today: &SyrDate) -> 
         instant = new_instant;
     }
     exit_clean_input_mode();
-    println!();
-    entry.save().context("Failed to save final entry progress")
+    entry.save()
 }

@@ -36,11 +36,7 @@ pub fn process(arg_matches: &ArgMatches, entries: &Entries, today: &SyrDate) -> 
             }
             .path();
 
-            if filepath.extension()?.to_str()? == "cin" {
-                Some(filepath)
-            } else {
-                None
-            }
+            if filepath.extension()?.to_str()? == "cin" { Some(filepath) } else { None }
         })
         .collect_vec();
     {};
@@ -62,7 +58,7 @@ pub fn process(arg_matches: &ArgMatches, entries: &Entries, today: &SyrDate) -> 
     let elapsed = jiff::Timestamp::now().since(timestamp)?.abs().total(jiff::Unit::Second)?;
 
     if arg_matches.get_flag("check") {
-        println!("{} {}", ARROW.green(), stps(elapsed));
+        println!("{} {}", ARROW.green(), elapsed.ms_str());
         return Ok(());
     }
 
@@ -77,9 +73,9 @@ pub fn process(arg_matches: &ArgMatches, entries: &Entries, today: &SyrDate) -> 
     entry.increase_bloc_duration(today, elapsed);
     println!(
         "{} {} {} {}",
-        stps(past),
+        past.s_str(),
         ARROW.green(),
-        stps(past + elapsed),
+        (past + elapsed).s_str(),
         format!("| ({} - {})", entry.print_name_and_first_alias(), today).dim()
     );
     entry.save()?;
