@@ -22,12 +22,12 @@ pub fn process(arg_matches: &ArgMatches, entries: &Entries, today: &SyrDate) -> 
         if arg_matches.get_flag("yesterday") {
             date = date.yesterday()?;
         } else if let Some(val) = arg_matches.get_one::<usize>("days-back") {
-            date = date.saturating_sub(Span::new().days(i64::try_from(*val)?));
+            date = date.saturating_sub(i64::try_from(*val)?.days());
         }
         date.into()
     };
 
-    let entries: Vec<&Entry> = entries.iter().filter(|entry| entry.get_bloc_duration(today) != 0.0).collect();
+    let entries: Vec<&Entry> = entries.iter().filter(|entry| entry.get_bloc_duration(&date) != 0.0).collect();
 
     let pad = entries
         .iter()
@@ -38,7 +38,6 @@ pub fn process(arg_matches: &ArgMatches, entries: &Entries, today: &SyrDate) -> 
 
     let weekday = date.weekday().to_string();
     let dashes = format!("{:-<1$}", "", (pad + 3 + f64::S_STR_LENGTH).max(weekday.len() + 13));
-
     println!("{}\n{}", (weekday + " - " + date.to_string().as_str()).bold(), dashes.as_str().dim());
 
     let total_duration: f64 = entries

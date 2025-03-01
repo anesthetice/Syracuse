@@ -1,7 +1,7 @@
 use super::syrtime::{Blocs, SyrDate};
 use color_eyre::{
-    eyre::{eyre, OptionExt},
     Result,
+    eyre::{OptionExt, eyre},
 };
 use crossterm::style::Stylize;
 use itertools::Itertools;

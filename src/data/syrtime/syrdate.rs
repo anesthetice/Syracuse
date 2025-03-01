@@ -1,5 +1,5 @@
-use color_eyre::eyre::{bail, Context, OptionExt};
-use serde::{de::Visitor, Deserialize, Serialize};
+use color_eyre::eyre::{Context, OptionExt, bail};
+use serde::{Deserialize, Serialize, de::Visitor};
 use std::str::FromStr;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]

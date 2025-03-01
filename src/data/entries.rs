@@ -1,6 +1,6 @@
 use crate::{
     algorithms,
-    utils::{enter_clean_input_mode, exit_clean_input_mode, ARROW},
+    utils::{ARROW, enter_clean_input_mode, exit_clean_input_mode},
 };
 use color_eyre::Result;
 use crossterm::{event, style::Stylize};

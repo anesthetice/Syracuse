@@ -1,9 +1,9 @@
 use super::{
-    syrtime::{SyrDate, SyrSpan},
     Entries, Entry,
+    syrtime::{SyrDate, SyrSpan},
 };
 use crate::config::Config;
-use color_eyre::{eyre::bail, Result};
+use color_eyre::{Result, eyre::bail};
 use itertools::Itertools;
 use plotters::prelude::*;
 use std::path::PathBuf;

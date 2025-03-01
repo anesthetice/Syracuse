@@ -31,7 +31,7 @@ use color_eyre::Result;
 use color_eyre::eyre::{Context, OptionExt, bail};
 use crossterm::{event, style::Stylize};
 use itertools::Itertools;
-use jiff::Span;
+use jiff::ToSpan;
 use jiff::civil::{DateTime, Weekday};
 use std::{
     io::{Read, Write},

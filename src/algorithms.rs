@@ -1,3 +1,4 @@
+#![allow(clippy::needless_range_loop)]
 use crate::config::Config;
 
 /// Returns a score from 0 to 1 depending on the local alignment of the two string sequences

@@ -7,10 +7,10 @@ mod dirs;
 mod utils;
 
 use color_eyre::{
-    eyre::{eyre, Context, OptionExt},
     Result,
+    eyre::{Context, OptionExt, eyre},
 };
-use data::{syrtime::SyrDate, Entries};
+use data::{Entries, syrtime::SyrDate};
 use directories::ProjectDirs;
 
 fn main() -> Result<()> {

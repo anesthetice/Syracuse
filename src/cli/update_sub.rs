@@ -56,7 +56,7 @@ pub(super) fn subcommand() -> Command {
 pub fn process(arg_matches: &ArgMatches, entries: &Entries, today: &SyrDate) -> Result<()> {
     let date = {
         if let Some(days_back) = arg_matches.get_one::<usize>("days-back") {
-            today.saturating_sub(Span::new().days(i64::try_from(*days_back)?)).into()
+            today.saturating_sub(i64::try_from(*days_back)?.days()).into()
         } else if let Some(date) = arg_matches.get_one::<SyrDate>("date") {
             *date
         } else {
