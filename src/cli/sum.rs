@@ -15,16 +15,6 @@ pub(super) fn subcommand() -> Command {
                 .action(ArgAction::Set),
         )
         .arg(
-            Arg::new("explicit")
-                .help("Breaks down each entry's contribution to the total time")
-                .required(false)
-                .short('e')
-                .short_alias('f')
-                .long("explicit")
-                .alias("full")
-                .action(ArgAction::SetTrue),
-        )
-        .arg(
             Arg::new("days-back")
                 .help("The number of days back included")
                 .short('d')
@@ -58,18 +48,11 @@ pub(super) fn subcommand() -> Command {
 pub fn process(arg_matches: &ArgMatches, entries: &Entries, today: &SyrDate) -> Result<()> {
     let entries: Vec<&Entry> = match arg_matches.get_many::<String>("exclude") {
         Some(entry_match) => {
-            let excluded: Vec<Entry> = entry_match.flat_map(|s| entries.choose(&s.to_uppercase(), IndexOptions::All)).collect();
-            entries
-                .iter()
-                .filter(|entry| {
-                    for other in excluded.iter() {
-                        if other == *entry {
-                            return false;
-                        }
-                    }
-                    true
-                })
-                .collect()
+            let excluded: Vec<String> = entry_match
+                .flat_map(|s| entries.choose(&s.to_uppercase(), IndexOptions::All).map(|entry| entry.name))
+                .collect();
+
+            entries.iter().filter(|entry| !excluded.contains(&entry.name)).collect()
         }
         None => entries.as_inner(),
     };
@@ -95,46 +78,32 @@ pub fn process(arg_matches: &ArgMatches, entries: &Entries, today: &SyrDate) -> 
     .into_iter()
     .collect();
 
-    if arg_matches.get_flag("explicit") {
-        let pad = entries
-            .iter()
-            .map(|entry| entry.name.len() + entry.aliases.first().map(|alias| alias.len()).unwrap_or(0))
-            .max()
-            .unwrap_or(1_usize)
-            + 2;
+    let pad = entries
+        .iter()
+        .map(|entry| entry.name.len() + entry.aliases.first().map(|alias| alias.len()).unwrap_or(0))
+        .max()
+        .unwrap_or(1_usize)
+        + 2;
 
-        let total_hours: f64 = entries
-            .iter()
-            .map(|entry| {
-                let hours: f64 = date_span
-                    .iter()
-                    .map(|date| entry.get_bloc_duration(date))
-                    .filter(|x| *x != 0.0)
-                    .fold(0_f64, |acc, x| acc + x / 3600.0);
+    let total_hours: f64 = entries
+        .iter()
+        .map(|entry| {
+            let hours: f64 = date_span
+                .iter()
+                .map(|date| entry.get_bloc_duration(date))
+                .filter(|x| *x != 0.0)
+                .fold(0_f64, |acc, x| acc + x / 3600.0);
+            if hours != 0.0 {
                 let pad = if !entry.aliases.is_empty() {
                     pad + 8 // .dim() adds 4 bytes to the start and the end of the string
                 } else {
                     pad
                 };
                 println!("{:<width$} : {:.2}", entry.display_name_and_first_alias(), hours, width = pad);
-                hours
-            })
-            .sum();
-        println!("{} {} Hours", ARROW.green(), format!("{:.2}", total_hours).bold());
-    } else {
-        let total_hours: f64 = entries
-            .iter()
-            .map(|entry| {
-                date_span
-                    .iter()
-                    .map(|date| entry.get_bloc_duration(date))
-                    .filter(|x| *x != 0.0)
-                    .fold(0_f64, |acc, x| acc + x / 3600.0)
-            })
-            .sum();
-
-        println!("{} Hours", format!("{:.2}", total_hours).bold());
-    }
-
+            }
+            hours
+        })
+        .sum();
+    println!("{} {} Hours", ARROW.green(), format!("{:.2}", total_hours).bold());
     Ok(())
 }
