@@ -1,5 +1,3 @@
-use color_eyre::owo_colors::OwoColorize;
-
 use super::*;
 
 pub(super) fn subcommand() -> Command {
