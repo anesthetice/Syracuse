@@ -1,3 +1,5 @@
+use color_eyre::owo_colors::OwoColorize;
+
 use super::*;
 
 pub(super) fn subcommand() -> Command {
@@ -37,6 +39,7 @@ pub fn process(arg_matches: &ArgMatches, entries: &Entries, today: &SyrDate) -> 
 
         SyrSpan::from_start_and_end(start, end)
     };
+    let mut total_weekly_duration: f64 = 0.0;
     for date in syrspan.into_iter() {
         let entries: Vec<&Entry> = entries.iter().filter(|entry| entry.get_bloc_duration(&date) != 0.0).collect();
 
@@ -51,7 +54,7 @@ pub fn process(arg_matches: &ArgMatches, entries: &Entries, today: &SyrDate) -> 
         let dashes = format!("{:-<1$}", "", (pad + 3 + f64::S_STR_LENGTH).max(weekday.len() + 13));
         println!("{}\n{}", (weekday + " - " + date.to_string().as_str()).bold(), dashes.as_str().dim());
 
-        let total_duration: f64 = entries
+        let total_daily_duration: f64 = entries
             .iter()
             .map(|entry| {
                 let duration = entry.get_bloc_duration(&date);
@@ -64,7 +67,9 @@ pub fn process(arg_matches: &ArgMatches, entries: &Entries, today: &SyrDate) -> 
                 duration
             })
             .sum();
-        println!("{} {}\n", ARROW.green().dim(), total_duration.s_str());
+        println!("{} {}\n", ARROWHEAD.dark_green(), total_daily_duration.s_str());
+        total_weekly_duration += total_daily_duration;
     }
+    println!("{} {}", ARROW.green(), total_weekly_duration.s_str().bold());
     Ok(())
 }

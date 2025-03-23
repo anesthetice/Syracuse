@@ -24,7 +24,7 @@ use crate::{
         syrtime::{SyrDate, SyrSpan, TimeFormatting, WeekdayFormatting},
     },
     dirs::Dirs,
-    utils::{ARROW, enter_clean_input_mode, exit_clean_input_mode},
+    utils::{ARROW, ARROWHEAD, enter_clean_input_mode, exit_clean_input_mode},
 };
 use clap::{Arg, ArgAction, ArgGroup, ArgMatches, Command, command, value_parser};
 use color_eyre::Result;

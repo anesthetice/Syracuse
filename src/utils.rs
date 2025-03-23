@@ -6,6 +6,7 @@ use crossterm::{
 use std::io::stdout;
 
 pub static ARROW: &str = "━━⮞";
+pub static ARROWHEAD: &str = "⮞";
 
 pub fn enter_clean_input_mode() {
     let _ = enable_raw_mode().map_err(|err| eprintln!("Warning, Failed to enable raw mode: '{err}'"));
