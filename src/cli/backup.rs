@@ -32,6 +32,10 @@ pub fn process(arg_matches: &ArgMatches, entries: &Entries, dt: &DateTime) -> Re
         }
     }
 
-    println!("{} Created backup at '{}'", ARROW.green(), path.canonicalize().unwrap_or(path).display());
+    println!(
+        "{} Created backup at '{}'",
+        ARROW.green(),
+        path.canonicalize().unwrap_or(path).display()
+    );
     Ok(())
 }

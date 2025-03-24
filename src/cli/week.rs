@@ -39,32 +39,48 @@ pub fn process(arg_matches: &ArgMatches, entries: &Entries, today: &SyrDate) -> 
     };
     let mut total_weekly_duration: f64 = 0.0;
     for date in syrspan.into_iter() {
-        let entries: Vec<&Entry> = entries.iter().filter(|entry| entry.get_bloc_duration(&date) != 0.0).collect();
-
-        let pad = entries
+        type CompactOutput<'a> = (Vec<(&'a str, Option<&'a str>, f64)>, usize, f64);
+        let (mut bones, pad, total_daily_duration): CompactOutput = entries
             .iter()
-            .map(|entry| entry.name.len() + entry.aliases.first().map(|alias| alias.len()).unwrap_or(0))
-            .max()
-            .unwrap_or(1_usize)
-            + 2;
+            .filter_map(|entry| {
+                let duration = entry.get_block_duration_opt(&date)?;
+                let name: &str = entry.name.as_str();
+                let alias: Option<&str> = entry.aliases.first().map(String::as_str);
+                let padding = name.len() + alias.map(str::len).unwrap_or(0) + 2;
+                Some((name, alias, duration, padding))
+            })
+            .fold(
+                (Vec::new(), 0, 0.0),
+                |(mut output, pad, total_duration), (name, alias, duration, pad_)| {
+                    output.push((name, alias, duration));
+                    (output, pad.max(pad_), total_duration + duration)
+                },
+            );
+
+        bones.sort_by(|a, b| match config::Config::get().sort_option {
+            SortOptions::NameAscending => a.0.cmp(b.0),
+            SortOptions::NameDescending => b.0.cmp(a.0),
+            SortOptions::DurationAscending => a.2.total_cmp(&b.2),
+            SortOptions::DurationDescending => b.2.total_cmp(&a.2),
+        });
 
         let weekday = date.weekday().to_string();
-        let dashes = format!("{:-<1$}", "", (pad + 3 + f64::S_STR_LENGTH).max(weekday.len() + 13));
-        println!("{}\n{}", (weekday + " - " + date.to_string().as_str()).bold(), dashes.as_str().dim());
+        let dashes = format!("{:-<1$}", "", usize::max(pad + 3 + f64::S_STR_LENGTH, weekday.len() + 13));
+        println!(
+            "{}\n{}",
+            (weekday + " - " + date.to_string().as_str()).bold(),
+            dashes.as_str().dim()
+        );
 
-        let total_daily_duration: f64 = entries
-            .iter()
-            .map(|entry| {
-                let duration = entry.get_bloc_duration(&date);
-                let pad = if !entry.aliases.is_empty() {
-                    pad + 8 // .dim() adds 4 bytes to the start and the end of the string
-                } else {
-                    pad
-                };
-                println!("{:<width$} : {}", entry.display_name_and_first_alias(), duration.s_str(), width = pad);
-                duration
-            })
-            .sum();
+        bones.into_iter().for_each(|(name, alias, duration)| match alias {
+            Some(alias) => {
+                let title: String = format!("{}; {}", name, alias.dim());
+                println!("{:<width$} : {}", title, duration.s_str(), width = pad + 8);
+            }
+            None => {
+                println!("{:<width$} : {}", name, duration.s_str(), width = pad);
+            }
+        });
         println!("{} {}\n", ARROWHEAD.dark_green(), total_daily_duration.s_str());
         total_weekly_duration += total_daily_duration;
     }

@@ -75,7 +75,8 @@ impl Entries {
                         .iter()
                         .chain(std::iter::once(&entry.name))
                         .map(|string| {
-                            sw_nw_ratio * algorithms::smith_waterman(string, query) + (1.0 - sw_nw_ratio) * algorithms::needleman_wunsch(string, query)
+                            sw_nw_ratio * algorithms::smith_waterman(string, query)
+                                + (1.0 - sw_nw_ratio) * algorithms::needleman_wunsch(string, query)
                         })
                         .fold(-1.0, |acc, x| if x > acc { x } else { acc }),
                     entry,
@@ -126,7 +127,11 @@ impl Entries {
             }
 
             match key.code {
-                event::KeyCode::Esc | event::KeyCode::Char('Q') | event::KeyCode::Char('q') | event::KeyCode::Char('N') | event::KeyCode::Char('n') => {
+                event::KeyCode::Esc
+                | event::KeyCode::Char('Q')
+                | event::KeyCode::Char('q')
+                | event::KeyCode::Char('N')
+                | event::KeyCode::Char('n') => {
                     exit_clean_input_mode();
                     break None;
                 }
@@ -164,7 +169,11 @@ impl Entries {
             }
 
             match key.code {
-                event::KeyCode::Esc | event::KeyCode::Char('Q') | event::KeyCode::Char('q') | event::KeyCode::Char('N') | event::KeyCode::Char('n') => {
+                event::KeyCode::Esc
+                | event::KeyCode::Char('Q')
+                | event::KeyCode::Char('q')
+                | event::KeyCode::Char('N')
+                | event::KeyCode::Char('n') => {
                     exit_clean_input_mode();
                     break None;
                 }

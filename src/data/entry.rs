@@ -44,7 +44,12 @@ impl PartialEq for Entry {
 
 impl Entry {
     pub fn new(name: String, aliases: Vec<String>, blocs: Blocs, indexed: bool) -> Self {
-        Self { name, aliases, blocs, indexed }
+        Self {
+            name,
+            aliases,
+            blocs,
+            indexed,
+        }
     }
 
     pub fn create(name: String, aliases: Vec<String>) -> Self {
@@ -70,9 +75,18 @@ impl Entry {
         };
 
         let mut buffer: Vec<u8> = Vec::new();
-        std::fs::OpenOptions::new().create(false).read(true).open(filepath)?.read_to_end(&mut buffer)?;
+        std::fs::OpenOptions::new()
+            .create(false)
+            .read(true)
+            .open(filepath)?
+            .read_to_end(&mut buffer)?;
 
-        Ok(Self::new(name, aliases, ijson::from_value(&serde_json::from_slice(&buffer)?)?, indexed))
+        Ok(Self::new(
+            name,
+            aliases,
+            ijson::from_value(&serde_json::from_slice(&buffer)?)?,
+            indexed,
+        ))
     }
 
     pub fn get_filestem(&self) -> String {
@@ -100,11 +114,18 @@ impl Entry {
     }
 
     pub fn is_new_entry_name_valid(&self, new_entry_name: &str) -> bool {
-        self.aliases.iter().chain(std::iter::once(&self.name)).any(|name| name == new_entry_name)
+        self.aliases
+            .iter()
+            .chain(std::iter::once(&self.name))
+            .any(|name| name == new_entry_name)
     }
 
     pub fn get_bloc_duration(&self, date: &SyrDate) -> f64 {
         *self.blocs.get(date).unwrap_or(&0.0)
+    }
+
+    pub fn get_block_duration_opt(&self, date: &SyrDate) -> Option<f64> {
+        self.blocs.get(date).cloned()
     }
 
     pub fn save(&self) -> Result<()> {

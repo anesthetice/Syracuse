@@ -1,4 +1,4 @@
-use crate::{animation::AnimationBuilder, data::graphing::interpolation::InterpolationMethod};
+use crate::{animation::AnimationBuilder, cli::SortOptions, data::graphing::interpolation::InterpolationMethod};
 use color_eyre::Result;
 use serde::{Deserialize, Serialize};
 use std::{
@@ -17,8 +17,8 @@ pub struct Config {
     pub autosave_period: u16,
     // The default backup path.
     pub backup_path: String,
-    /// Determines weather or not the initial time is displayed when running an entry.
-    pub stopwatch_explicit: bool,
+    /// Determines in which order entries are listed, with the start defined as the top, and the end as the bottom, the following values are possible: NameAscending, NameDescending, DurationAscending, DurationDescending.
+    pub sort_option: SortOptions,
     /// Determines the numbers of hours past midnight for which running a command will count for the previous day.
     pub night_owl_hour_extension: i8,
 
@@ -66,7 +66,7 @@ impl Default for Config {
             entry_file_name_separtor: "-·-".to_string(),
             autosave_period: 30,
             backup_path: "".to_string(),
-            stopwatch_explicit: false,
+            sort_option: SortOptions::default(),
             night_owl_hour_extension: 0,
             search_threshold: 0.0,
             sw_nw_ratio: 0.5,
@@ -137,7 +137,11 @@ impl Config {
 
     fn from_file(filepath: &std::path::Path) -> Result<Self> {
         let mut buffer: Vec<u8> = Vec::new();
-        std::fs::OpenOptions::new().create(false).read(true).open(filepath)?.read_to_end(&mut buffer)?;
+        std::fs::OpenOptions::new()
+            .create(false)
+            .read(true)
+            .open(filepath)?
+            .read_to_end(&mut buffer)?;
         Ok(ijson::from_value(&serde_json::from_slice(&buffer)?)?)
     }
 

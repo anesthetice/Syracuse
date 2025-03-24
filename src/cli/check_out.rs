@@ -3,7 +3,9 @@ use super::*;
 pub(super) fn subcommand() -> Command {
     Command::new("check-out")
         .about("Check-out an entry")
-        .long_about("This subcommand is used to check-out the previously checked-in entry, adding the difference in time to the count\naliases: 'cout'")
+        .long_about(
+            "This subcommand is used to check-out the previously checked-in entry, adding the difference in time to the count\naliases: 'cout'",
+        )
         .alias("cout")
         .arg(
             Arg::new("cancel")
@@ -36,7 +38,11 @@ pub fn process(arg_matches: &ArgMatches, entries: &Entries, today: &SyrDate) -> 
             }
             .path();
 
-            if filepath.extension()?.to_str()? == "cin" { Some(filepath) } else { None }
+            if filepath.extension()?.to_str()? == "cin" {
+                Some(filepath)
+            } else {
+                None
+            }
         })
         .collect_vec();
     {};
@@ -62,7 +68,11 @@ pub fn process(arg_matches: &ArgMatches, entries: &Entries, today: &SyrDate) -> 
         return Ok(());
     }
 
-    let name = filepath.file_stem().ok_or_eyre("Invalid file name")?.to_str().ok_or_eyre("Invalid file name")?;
+    let name = filepath
+        .file_stem()
+        .ok_or_eyre("Invalid file name")?
+        .to_str()
+        .ok_or_eyre("Invalid file name")?;
     let mut entry = entries
         .iter()
         .find(|entry| entry.name == name)

@@ -33,6 +33,7 @@ use crossterm::{event, style::Stylize};
 use itertools::Itertools;
 use jiff::ToSpan;
 use jiff::civil::{DateTime, Weekday};
+use serde::{Deserialize, Serialize};
 use std::{
     io::{Read, Write},
     path::PathBuf,
@@ -79,5 +80,19 @@ pub fn cli(entries: Entries, today: SyrDate, dt: DateTime) -> Result<()> {
         Some(("check-out", arg_matches)) => check_out::process(arg_matches, &entries, &today),
         Some(("week", arg_matches)) => week::process(arg_matches, &entries, &today),
         _ => Ok(()),
+    }
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+pub(crate) enum SortOptions {
+    NameAscending,
+    NameDescending,
+    DurationAscending,
+    DurationDescending,
+}
+
+impl Default for SortOptions {
+    fn default() -> Self {
+        Self::DurationDescending
     }
 }

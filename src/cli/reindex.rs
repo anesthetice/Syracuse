@@ -3,7 +3,9 @@ use super::*;
 pub(super) fn subcommand() -> Command {
     Command::new("reindex")
         .about("Reindex one or more entries")
-        .long_about("This subcommand is used to reindex one or more specified entries\nUnlike unindexed entries, indexed entries can appear in the choice pool")
+        .long_about(
+            "This subcommand is used to reindex one or more specified entries\nUnlike unindexed entries, indexed entries can appear in the choice pool",
+        )
         .arg(
             Arg::new("entries")
                 .index(1)

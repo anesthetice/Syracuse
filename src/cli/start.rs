@@ -5,11 +5,19 @@ pub(super) fn subcommand() -> Command {
         .aliases(["s", "r", "run", "go", "launch", "begin"])
         .about("Start the daily stopwatch for an entry")
         .long_about("This subcommand is used to start the stopwatch for the specified entry\naliases: 's', 'r', 'run', 'go', 'launch', 'begin'")
-        .arg(Arg::new("entry").index(1).required(true).help("The entry to start").action(ArgAction::Set))
+        .arg(
+            Arg::new("entry")
+                .index(1)
+                .required(true)
+                .help("The entry to start")
+                .action(ArgAction::Set),
+        )
 }
 
 pub fn process(arg_matches: &ArgMatches, entries: &Entries, today: &SyrDate) -> Result<()> {
-    let name = arg_matches.get_one::<String>("entry").ok_or_eyre("Failed to parse entry to string")?;
+    let name = arg_matches
+        .get_one::<String>("entry")
+        .ok_or_eyre("Failed to parse entry to string")?;
 
     let Some(mut entry) = entries.choose(&name.to_uppercase(), IndexOptions::Indexed) else {
         return Ok(());

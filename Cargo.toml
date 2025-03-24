@@ -1,7 +1,21 @@
 [package]
 name = "syracuse"
 version = "3.2.1"
+authors = ["anesthetice"]
 edition = "2024"
+description = "A simple and well-polished cli application used to keep track of your day to day productivity."
+readme = "README.md"
+repository = "https://github.com/anesthetice/Syracuse"
+license-file = "LICENSE"
+keywords = [
+    "cli",
+    "time-management",
+    "hours-tracker",
+    "time-tracking",
+    "productivity",
+]
+categories = ["command-line-utilities"]
+exclude = ["/assets"]
 
 [dependencies]
 clap = { version = "4.5", features = ["cargo"] }
@@ -24,3 +38,6 @@ lto = true
 panic = "abort"
 strip = "symbols"
 codegen-units = 1
+
+[lints.rust]
+unsafe_code = "forbid"

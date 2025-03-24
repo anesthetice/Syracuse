@@ -5,7 +5,13 @@ pub(super) fn subcommand() -> Command {
         .aliases(["upsub", "updecr", "upmin"])
         .about("Manually decrease the time tracked by an entry")
         .long_about("This subcommand is used to manually decrease the time associated with an entry on a given day\naliases: 'upsub', 'updecr', 'upmin'")
-        .arg(Arg::new("entry").index(1).required(true).help("The entry to update").action(ArgAction::Set))
+        .arg(
+            Arg::new("entry")
+                .index(1)
+                .required(true)
+                .help("The entry to update")
+                .action(ArgAction::Set),
+        )
         .arg(
             Arg::new("days-back")
                 .help("The number of days back to check")
@@ -64,7 +70,9 @@ pub fn process(arg_matches: &ArgMatches, entries: &Entries, today: &SyrDate) -> 
         }
     };
 
-    let name = arg_matches.get_one::<String>("entry").ok_or_eyre("Failed to parse entry to string")?;
+    let name = arg_matches
+        .get_one::<String>("entry")
+        .ok_or_eyre("Failed to parse entry to string")?;
     let Some(mut entry) = entries.choose(&name.to_uppercase(), IndexOptions::Indexed) else {
         return Ok(());
     };
@@ -77,7 +85,13 @@ pub fn process(arg_matches: &ArgMatches, entries: &Entries, today: &SyrDate) -> 
     let past = entry.get_bloc_duration(&date);
     entry.decrease_bloc_duration(&date, total_diff);
     entry.save()?;
-    println!("{} | {} {} {}", &date, past.s_str(), ARROW.red(), entry.get_bloc_duration(&date).s_str());
+    println!(
+        "{} | {} {} {}",
+        &date,
+        past.s_str(),
+        ARROW.red(),
+        entry.get_bloc_duration(&date).s_str()
+    );
 
     Ok(())
 }

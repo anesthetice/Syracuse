@@ -27,7 +27,10 @@ pub fn process(arg_matches: &ArgMatches, entries: &Entries) -> Result<()> {
         bail!("Failed to add new entry, one of the names conflicts with the separator '{separator}'",);
     }
 
-    if entries.iter().any(|entry| names.iter().any(|name| entry.is_new_entry_name_valid(name))) {
+    if entries
+        .iter()
+        .any(|entry| names.iter().any(|name| entry.is_new_entry_name_valid(name)))
+    {
         bail!("Failed to add new entry, one of the names conflicts with an existing entry.");
     }
 

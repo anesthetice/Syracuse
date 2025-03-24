@@ -65,7 +65,12 @@ pub fn graph(entries: Entries, date_span: SyrSpan) -> Result<()> {
             sum_points[idx].1 += point.1
         }
     }
-    let max_y = sum_points.iter().map(|&(_, a)| a).max_by(|a, b| a.total_cmp(b)).unwrap_or(6.0).ceil();
+    let max_y = sum_points
+        .iter()
+        .map(|&(_, a)| a)
+        .max_by(|a, b| a.total_cmp(b))
+        .unwrap_or(6.0)
+        .ceil();
     if max_y == 0.0 {
         eprintln!("Warning: No entries found within the given date span, returning early");
         return Ok(());
@@ -145,9 +150,13 @@ pub fn graph(entries: Entries, date_span: SyrSpan) -> Result<()> {
 
     while let Some((name, points)) = superpoints.pop() {
         let color = marker_color_wheel[mcw_idx];
-        ctx.draw_series(points.into_iter().map(|coord| Circle::new(coord, marker_size, color.stroke_width(2))))?
-            .label(name)
-            .legend(move |point| Circle::new(point, marker_size, color.stroke_width(2)));
+        ctx.draw_series(
+            points
+                .into_iter()
+                .map(|coord| Circle::new(coord, marker_size, color.stroke_width(2))),
+        )?
+        .label(name)
+        .legend(move |point| Circle::new(point, marker_size, color.stroke_width(2)));
 
         mcw_idx += 1;
         if mcw_idx == mcw_len {
@@ -158,9 +167,13 @@ pub fn graph(entries: Entries, date_span: SyrSpan) -> Result<()> {
 
     while let Some((name, points)) = superpoints.pop() {
         let color = marker_color_wheel[mcw_idx];
-        ctx.draw_series(points.into_iter().map(|coord| TriangleMarker::new(coord, marker_size, color.stroke_width(2))))?
-            .label(name)
-            .legend(move |coord| TriangleMarker::new(coord, marker_size, color.stroke_width(2)));
+        ctx.draw_series(
+            points
+                .into_iter()
+                .map(|coord| TriangleMarker::new(coord, marker_size, color.stroke_width(2))),
+        )?
+        .label(name)
+        .legend(move |coord| TriangleMarker::new(coord, marker_size, color.stroke_width(2)));
 
         mcw_idx += 1;
         if mcw_idx == mcw_len {
@@ -171,9 +184,13 @@ pub fn graph(entries: Entries, date_span: SyrSpan) -> Result<()> {
 
     while let Some((name, points)) = superpoints.pop() {
         let color = marker_color_wheel[mcw_idx];
-        ctx.draw_series(points.into_iter().map(|coord| Cross::new(coord, marker_size, color.stroke_width(2))))?
-            .label(name)
-            .legend(move |coord| Cross::new(coord, marker_size, color.stroke_width(2)));
+        ctx.draw_series(
+            points
+                .into_iter()
+                .map(|coord| Cross::new(coord, marker_size, color.stroke_width(2))),
+        )?
+        .label(name)
+        .legend(move |coord| Cross::new(coord, marker_size, color.stroke_width(2)));
 
         mcw_idx += 1;
         if mcw_idx == mcw_len {
@@ -238,7 +255,10 @@ pub mod interpolation {
 
     pub(super) fn makima(points: Vec<(f64, f64)>) -> Vec<(f64, f64)> {
         if points.len() < 5 {
-            eprintln!("Warning: A minimum of 5 points are required to use m-Akima interpolation, got {}", points.len());
+            eprintln!(
+                "Warning: A minimum of 5 points are required to use m-Akima interpolation, got {}",
+                points.len()
+            );
             return linear(points);
         }
         let n = points.len() - 1;

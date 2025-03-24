@@ -25,9 +25,11 @@ impl Animation {
     }
     pub fn step(&mut self, stdout: &mut io::Stdout, focus: &str) {
         if let Some((l, r)) = self.frames.get(self.index) {
-            let _ = stdout.write_all(&[l.as_bytes(), focus.as_bytes(), r.as_bytes()].concat()).map_err(|err| {
-                eprintln!("Warning: Failed to write animation to stdout, {}", err);
-            });
+            let _ = stdout
+                .write_all(&[l.as_bytes(), focus.as_bytes(), r.as_bytes()].concat())
+                .map_err(|err| {
+                    eprintln!("Warning: Failed to write animation to stdout, {}", err);
+                });
             let _ = stdout.flush().map_err(|err| {
                 eprintln!("Warning: Failed to flush stdout, {}", err);
             });
