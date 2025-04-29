@@ -1,6 +1,6 @@
 [package]
 name = "syracuse"
-version = "3.2.2"
+version = "3.2.3"
 authors = ["anesthetice"]
 edition = "2024"
 description = "A simple and (relatively) well-polished cli application used to keep track of your day to day productivity."

@@ -31,19 +31,19 @@ syr graph --days 14
 
 <img src="https://github.com/anesthetice/Syracuse/blob/main/assets/makima_interpolation.png" alt="makima interpolation" width="70%"/>
 
+### Installation
+
+Syracuse can be installed very simply using cargo:
+``` bash
+cargo install syracuse
+```
+
 ### Build
 
 ```
 git clone https://github.com/anesthetice/Syracuse.git
 cd Syracuse
 cargo build --release
-```
-
-### Installation
-
-Syracuse can be installed very simply using cargo:
-``` bash
-cargo install syracuse
 ```
 
 ### Usage

@@ -9,7 +9,7 @@ pub(super) fn subcommand() -> Command {
         .alias("cout")
         .arg(
             Arg::new("cancel")
-                .help("Does not add the difference in time to the count")
+                .help("Does not add the difference in time to the time tracked by the entry")
                 .long("cancel")
                 .required(false)
                 .action(ArgAction::SetTrue)
