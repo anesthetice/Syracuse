@@ -78,32 +78,45 @@ pub fn process(arg_matches: &ArgMatches, entries: &Entries, today: &SyrDate) -> 
     .into_iter()
     .collect();
 
-    let pad = entries
-        .iter()
-        .map(|entry| entry.name.len() + entry.aliases.first().map(|alias| alias.len()).unwrap_or(0))
-        .max()
-        .unwrap_or(1_usize)
-        + 2;
-
-    let total_hours: f64 = entries
-        .iter()
-        .map(|entry| {
+    type CompactOutput<'a> = (Vec<(&'a str, Option<&'a str>, f64)>, usize, f64);
+    let (mut bones, pad, total_hours): CompactOutput = entries
+        .into_iter()
+        .filter_map(|entry| {
             let hours: f64 = date_span
                 .iter()
-                .map(|date| entry.get_bloc_duration(date))
-                .filter(|x| *x != 0.0)
-                .fold(0_f64, |acc, x| acc + x / 3600.0);
-            if hours != 0.0 {
-                let pad = if !entry.aliases.is_empty() {
-                    pad + 8 // .dim() adds 4 bytes to the start and the end of the string
-                } else {
-                    pad
-                };
-                println!("{:<width$} : {:.2}", entry.display_name_and_first_alias(), hours, width = pad);
-            }
-            hours
+                .filter_map(|date| entry.get_block_duration_opt(date))
+                .sum1()
+                .map(|val: f64| val / 3600.0)?;
+            let name: &str = entry.name.as_str();
+            let alias: Option<&str> = entry.aliases.first().map(String::as_str);
+            let padding = name.len() + alias.map(str::len).unwrap_or(0) + 2;
+            Some((name, alias, hours, padding))
         })
-        .sum();
+        .fold(
+            (Vec::new(), 0, 0.0),
+            |(mut output, pad, total_hours), (name, alias, hours, pad_)| {
+                output.push((name, alias, hours));
+                (output, pad.max(pad_), total_hours + hours)
+            },
+        );
+
+    bones.sort_by(|a, b| match config::Config::get().sort_option {
+        SortOptions::NameAscending => a.0.cmp(b.0),
+        SortOptions::NameDescending => b.0.cmp(a.0),
+        SortOptions::DurationAscending => a.2.total_cmp(&b.2),
+        SortOptions::DurationDescending => b.2.total_cmp(&a.2),
+    });
+
+    bones.into_iter().for_each(|(name, alias, hours)| match alias {
+        Some(alias) => {
+            let title: String = format!("{}; {}", name, alias.dim());
+            println!("{:<width$} : {:.2}", title, hours, width = pad + 8);
+        }
+        None => {
+            println!("{:<width$} : {:.2}", name, hours, width = pad);
+        }
+    });
+
     println!("{} {} Hours", ARROW.green(), format!("{:.2}", total_hours).bold());
     Ok(())
 }
