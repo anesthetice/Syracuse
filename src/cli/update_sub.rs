@@ -14,7 +14,7 @@ pub(super) fn subcommand() -> Command {
         )
         .arg(
             Arg::new("days-back")
-                .help("The number of days back to check")
+                .help("The number of days back to target")
                 .short('d')
                 .long("days-back")
                 .value_parser(value_parser!(usize))

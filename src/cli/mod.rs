@@ -3,6 +3,7 @@ mod add;
 mod backup;
 mod check_in;
 mod check_out;
+mod gen_completions;
 mod graph;
 mod list;
 mod prune;
@@ -26,7 +27,8 @@ use crate::{
     dirs::Dirs,
     utils::{ARROW, ARROWHEAD, enter_clean_input_mode, exit_clean_input_mode},
 };
-use clap::{Arg, ArgAction, ArgGroup, ArgMatches, Command, command, value_parser};
+use clap::{Arg, ArgAction, ArgGroup, ArgMatches, Command, value_parser};
+use clap_complete::{Shell, generate};
 use color_eyre::Result;
 use color_eyre::eyre::{Context, OptionExt, bail};
 use crossterm::{event, style::Stylize};
@@ -40,8 +42,8 @@ use std::{
     time::{Duration, Instant},
 };
 
-pub fn cli(entries: Entries, today: SyrDate, dt: DateTime) -> Result<()> {
-    let command = command!().subcommands([
+pub fn build_cli() -> Command {
+    Command::new("syr").subcommands([
         add::subcommand(),
         list::subcommand(),
         remove::subcommand(),
@@ -58,7 +60,12 @@ pub fn cli(entries: Entries, today: SyrDate, dt: DateTime) -> Result<()> {
         check_in::subcommand(),
         check_out::subcommand(),
         week::subcommand(),
-    ]);
+        gen_completions::subcommand(),
+    ])
+}
+
+pub fn cli(entries: Entries, today: SyrDate, dt: DateTime) -> Result<()> {
+    let command = build_cli();
 
     let arg_matches = command.get_matches();
 
@@ -79,6 +86,7 @@ pub fn cli(entries: Entries, today: SyrDate, dt: DateTime) -> Result<()> {
         Some(("check-in", arg_matches)) => check_in::process(arg_matches, &entries),
         Some(("check-out", arg_matches)) => check_out::process(arg_matches, &entries, &today),
         Some(("week", arg_matches)) => week::process(arg_matches, &entries, &today),
+        Some(("gen-completions", arg_matches)) => gen_completions::process(arg_matches),
         _ => Ok(()),
     }
 }
