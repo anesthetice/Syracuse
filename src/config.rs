@@ -11,8 +11,6 @@ pub static CONFIG: OnceLock<Config> = OnceLock::new();
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Config {
-    /// Determines what set of characters separate the names of an entry stored as a file.
-    pub entry_file_name_separtor: String,
     /// Determines how often should progress be automatically saved in seconds.
     pub autosave_period: u16,
     // The default backup path.
@@ -63,7 +61,6 @@ pub struct Config {
 impl Default for Config {
     fn default() -> Self {
         Self {
-            entry_file_name_separtor: "-·-".to_string(),
             autosave_period: 30,
             backup_path: "".to_string(),
             sort_option: SortOptions::default(),
@@ -134,7 +131,6 @@ impl Config {
             }
         }
     }
-
     fn from_file(filepath: &std::path::Path) -> Result<Self> {
         let mut buffer: Vec<u8> = Vec::new();
         std::fs::OpenOptions::new()
@@ -144,7 +140,6 @@ impl Config {
             .read_to_end(&mut buffer)?;
         Ok(ijson::from_value(&serde_json::from_slice(&buffer)?)?)
     }
-
     fn to_file(&self, filepath: &std::path::Path) -> Result<()> {
         let mut file = std::fs::OpenOptions::new().write(true).create_new(true).open(filepath)?;
 

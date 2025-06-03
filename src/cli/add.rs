@@ -21,7 +21,7 @@ pub fn process(arg_matches: &ArgMatches, entries: &Entries) -> Result<()> {
         .ok_or_eyre("Failed to parse entry/entries to string/strings")?;
     let mut names: Vec<String> = names.map(|s| s.to_uppercase()).collect();
 
-    let separator = config::Config::get().entry_file_name_separtor.as_str();
+    let separator = Entry::SEPARATOR;
 
     if names.iter().any(|name| name.contains(separator)) {
         bail!("Failed to add new entry, one of the names conflicts with the separator '{separator}'",);

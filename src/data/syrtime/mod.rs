@@ -1,7 +1,7 @@
-pub mod blocs;
-pub mod syrdate;
-pub mod syrspan;
-pub mod traits;
+mod blocs;
+mod syrdate;
+mod syrspan;
+mod traits;
 
 pub use blocs::Blocs;
 pub use syrdate::SyrDate;

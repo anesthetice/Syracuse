@@ -1,5 +1,5 @@
 use color_eyre::eyre::{Context, OptionExt, bail};
-use serde::{Deserialize, Serialize, de::Visitor};
+use serde::{Deserialize, Serialize};
 use std::str::FromStr;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -10,13 +10,18 @@ impl SyrDate {
         Self(date)
     }
     pub fn as_string_with_formatting(&self, sep_char: char) -> String {
-        format!("{:0>2}{sep_char}{:0>2}{sep_char}{:0>4}", self.day(), self.month(), self.year())
+        format!(
+            "{:0>2}{sep_char}{:0>2}{sep_char}{:0>4}",
+            self.day(),
+            self.month(),
+            self.year()
+        )
     }
 }
 
 impl std::fmt::Display for SyrDate {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{:0>2}/{:0>2}/{:0>4}", self.day(), self.month(), self.year())
+        f.write_str(&self.as_string_with_formatting('/'))
     }
 }
 
@@ -36,7 +41,9 @@ impl FromStr for SyrDate {
             .ok_or_eyre("Failed to parse date, no separator character detected, ('/', '.', '-', '_')")?;
         let input: Vec<&str> = s.split(split_char).collect();
         if input.len() != 3 {
-            bail!("Failed to parse date, invalid date format, expected dd/mm/yyyy, or with '/' alternatives such as '.', '_', or '-'");
+            bail!(
+                "Failed to parse date, invalid date format, expected dd/mm/yyyy, or with '/' alternatives such as '.', '_', or '-'"
+            );
         }
         Ok(Self::from(
             jiff::civil::Date::new(
@@ -77,7 +84,10 @@ impl<'a> Deserialize<'a> for SyrDate {
     where
         D: serde::Deserializer<'a>,
     {
-        deserializer.deserialize_any(SyrDateVisitor)
+        SyrDate::try_from(&String::deserialize(deserializer)?).map_err(|err| {
+            eprintln!("{err}");
+            serde::de::Error::custom("Failed to parse date")
+        })
     }
 }
 
@@ -91,29 +101,5 @@ impl std::ops::Deref for SyrDate {
 impl std::ops::DerefMut for SyrDate {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.0
-    }
-}
-
-struct SyrDateVisitor;
-
-impl Visitor<'_> for SyrDateVisitor {
-    type Value = SyrDate;
-
-    fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
-        formatter.write_str("a valid string : dd/mm/yyyy")
-    }
-
-    fn visit_str<E>(self, v: &str) -> Result<Self::Value, E>
-    where
-        E: serde::de::Error,
-    {
-        SyrDate::try_from(v).or(Err(E::custom("Failed to parse date, invalid date format")))
-    }
-
-    fn visit_string<E>(self, v: String) -> Result<Self::Value, E>
-    where
-        E: serde::de::Error,
-    {
-        SyrDate::try_from(&v).or(Err(E::custom("Failed to parse date, invalid date format")))
     }
 }

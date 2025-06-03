@@ -1,3 +1,8 @@
+use std::{
+    slice::{Iter, IterMut},
+    vec::IntoIter,
+};
+
 use crate::{
     algorithms,
     utils::{ARROW, enter_clean_input_mode, exit_clean_input_mode},
@@ -6,35 +11,34 @@ use color_eyre::Result;
 use crossterm::{event, style::Stylize};
 use itertools::Itertools;
 
-use super::{Entry, IndexOptions};
+use super::{Entry, EntryCore, IEntry, IndexOptions, UEntry};
 
-pub struct Entries(Vec<Entry>);
-
-impl From<Vec<Entry>> for Entries {
-    fn from(value: Vec<Entry>) -> Self {
-        Self(value)
-    }
-}
-
-impl std::ops::Deref for Entries {
-    type Target = Vec<Entry>;
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
-impl std::ops::DerefMut for Entries {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.0
-    }
+pub struct Entries {
+    indexed: Vec<IEntry>,
+    unindexed: Vec<UEntry>,
 }
 
 impl Entries {
-    pub fn as_inner(&self) -> Vec<&Entry> {
-        self.iter().collect_vec()
+    pub fn iter_i(&self) -> Iter<'_, IEntry> {
+        self.indexed.iter()
     }
+    pub fn iter_mut_i(&mut self) -> IterMut<'_, IEntry> {
+        self.indexed.iter_mut()
+    }
+    pub fn iter_u(&self) -> Iter<'_, UEntry> {
+        self.unindexed.iter()
+    }
+    pub fn iter_mut_u(&mut self) -> IterMut<'_, UEntry> {
+        self.unindexed.iter_mut()
+    }
+    pub fn iter_all(&self) -> impl Iterator<Item = &'_ dyn EntryCore> {
+        let iter_i = self.iter_i().map(|e| e as &dyn EntryCore);
+        let iter_u = self.iter_u().map(|e| e as &dyn EntryCore);
+        iter_i.chain(iter_u)
+    }
+
     pub fn load() -> Result<Self> {
-        Ok(std::fs::read_dir(crate::dirs::Dirs::get().data_dir())?
+        let indexed_entries: Vec<IEntry> = std::fs::read_dir(crate::dirs::Dirs::get().data_dir())?
             .filter_map(|res| {
                 let path = match res {
                     Ok(e) => e,
@@ -47,6 +51,9 @@ impl Entries {
                 if path.extension()?.to_str()? != "json" {
                     return None;
                 }
+                if path.file_stem()?.to_str()? == Entry::UNINDEXED_FILE_STEM {
+                    return None;
+                }
                 match Entry::from_file(&path) {
                     Ok(entry) => Some(entry),
                     Err(error) => {
@@ -55,8 +62,8 @@ impl Entries {
                     }
                 }
             })
-            .collect::<Vec<Entry>>()
-            .into())
+            .collect();
+        unimplemented!()
     }
     pub fn choose(&self, query: &str, index_options: IndexOptions) -> Option<Entry> {
         let sw_nw_ratio = crate::config::Config::get().sw_nw_ratio;
@@ -197,17 +204,4 @@ impl Entries {
             }
         }
     }
-}
-
-#[cfg(feature = "twotothree")]
-pub fn convert(mut entries: Entries) -> Result<()> {
-    for entry in entries.0.iter_mut() {
-        entry.blocs.iter_mut().for_each(|(_, val)| {
-            if *val > 43200.0 {
-                *val /= 1e9
-            }
-        });
-        entry.save()?;
-    }
-    Ok(())
 }
