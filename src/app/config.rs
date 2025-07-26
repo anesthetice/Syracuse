@@ -1,12 +1,7 @@
-use crate::{animation::AnimationBuilder, cli::SortOptions, data::graphing::interpolation::InterpolationMethod};
+use crate::{animation::AnimationBuilder, app::SortOptions, data::graphing::interpolation::InterpolationMethod};
 use color_eyre::Result;
 use serde::{Deserialize, Serialize};
-use std::{
-    io::{Read, Write},
-    sync::OnceLock,
-};
-
-pub static CONFIG: OnceLock<Config> = OnceLock::new();
+use std::io::{Read, Write};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default)]
@@ -105,9 +100,6 @@ impl Default for Config {
 }
 
 impl Config {
-    pub fn get() -> &'static Self {
-        CONFIG.get().unwrap()
-    }
     pub fn load(filepath: &std::path::Path) -> Self {
         match Self::from_file(filepath) {
             Ok(config) => config,

@@ -21,6 +21,8 @@ pub trait EntryCore {
     fn print_name_and_first_alias(&self) -> String;
 }
 
+pub type EntryView = Box<dyn EntryCore>;
+
 impl<const I: bool> EntryCore for Entry<I> {
     fn is_new_entry_name_valid(&self, new_entry_name: &str) -> bool {
         self.aliases
@@ -50,11 +52,11 @@ impl<const I: bool> Entry<I> {
     pub const UNINDEXED_FILE_STEM: &'static str = ".unindexed";
     pub const EXTENSION: &'static str = ".json";
 
-    fn new(name: String, aliases: Vec<String>, blocs: Blocs) -> Self {
+    pub fn new(name: String, aliases: Vec<String>, blocs: Blocs) -> Self {
         Self { name, aliases, blocs }
     }
 
-    fn create(name: String, aliases: Vec<String>) -> Self {
+    pub fn create(name: String, aliases: Vec<String>) -> Self {
         Self::new(name, aliases, Blocs::default())
     }
 }

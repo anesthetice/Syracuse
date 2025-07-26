@@ -11,7 +11,7 @@ use std::{
 
 pub type IEntry = Entry<true>;
 
-impl Entry<true> {
+impl IEntry {
     pub fn from_file(filepath: &Path) -> Result<Self> {
         let mut file_name = filepath
             .file_stem()
@@ -74,12 +74,14 @@ impl Entry<true> {
     pub fn save_to_file(&self, filepath: &Path) -> Result<()> {
         let data = serde_json::to_vec_pretty(&ijson::to_value(&self.blocs)?)?;
 
-        std::fs::OpenOptions::new()
+        let mut file = std::fs::OpenOptions::new()
             .create(true)
             .write(true)
             .truncate(true)
-            .open(filepath)?
-            .write_all(&data)?;
+            .open(filepath)?;
+
+        file.write_all(&data)?;
+        file.sync_all()?;
 
         Ok(())
     }

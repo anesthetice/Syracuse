@@ -1,7 +1,12 @@
-use std::{
-    slice::{Iter, IterMut},
-    vec::IntoIter,
-};
+// Modules
+mod ientries;
+mod uentries;
+
+// Re-exports
+pub use ientries::IEntries;
+pub use uentries::UEntries;
+
+use std::slice::{Iter, IterMut};
 
 use crate::{
     algorithms,
@@ -13,58 +18,28 @@ use itertools::Itertools;
 
 use super::{Entry, EntryCore, IEntry, IndexOptions, UEntry};
 
-pub struct Entries {
-    indexed: Vec<IEntry>,
-    unindexed: Vec<UEntry>,
+pub struct Entries<const I: bool>(Vec<Entry<I>>);
+
+impl<const I: bool> Entries<I> {
+    pub fn iter(&self) -> Iter<'_, Entry<I>> {
+        self.0.iter()
+    }
+    pub fn iter_mut(&mut self) -> IterMut<'_, Entry<I>> {
+        self.0.iter_mut()
+    }
+    pub fn into_iter(self) -> std::vec::IntoIter<Entry<I>> {
+        self.0.into_iter()
+    }
 }
 
-impl Entries {
-    pub fn iter_i(&self) -> Iter<'_, IEntry> {
-        self.indexed.iter()
+impl<const I: bool> From<Vec<Entry<I>>> for Entries<I> {
+    fn from(value: Vec<Entry<I>>) -> Self {
+        Self(value)
     }
-    pub fn iter_mut_i(&mut self) -> IterMut<'_, IEntry> {
-        self.indexed.iter_mut()
-    }
-    pub fn iter_u(&self) -> Iter<'_, UEntry> {
-        self.unindexed.iter()
-    }
-    pub fn iter_mut_u(&mut self) -> IterMut<'_, UEntry> {
-        self.unindexed.iter_mut()
-    }
-    pub fn iter_all(&self) -> impl Iterator<Item = &'_ dyn EntryCore> {
-        let iter_i = self.iter_i().map(|e| e as &dyn EntryCore);
-        let iter_u = self.iter_u().map(|e| e as &dyn EntryCore);
-        iter_i.chain(iter_u)
-    }
+}
 
-    pub fn load() -> Result<Self> {
-        let indexed_entries: Vec<IEntry> = std::fs::read_dir(crate::dirs::Dirs::get().data_dir())?
-            .filter_map(|res| {
-                let path = match res {
-                    Ok(e) => e,
-                    Err(err) => {
-                        eprintln!("Warning: {}", err);
-                        return None;
-                    }
-                }
-                .path();
-                if path.extension()?.to_str()? != "json" {
-                    return None;
-                }
-                if path.file_stem()?.to_str()? == Entry::UNINDEXED_FILE_STEM {
-                    return None;
-                }
-                match Entry::from_file(&path) {
-                    Ok(entry) => Some(entry),
-                    Err(error) => {
-                        eprintln!("Warning: {}", error);
-                        None
-                    }
-                }
-            })
-            .collect();
-        unimplemented!()
-    }
+/*
+impl Entries {
     pub fn choose(&self, query: &str, index_options: IndexOptions) -> Option<Entry> {
         let sw_nw_ratio = crate::config::Config::get().sw_nw_ratio;
         let choices: Vec<&Entry> = self
@@ -205,3 +180,5 @@ impl Entries {
         }
     }
 }
+
+*/

@@ -90,17 +90,3 @@ pub fn cli(entries: Entries, today: SyrDate, dt: DateTime) -> Result<()> {
         _ => Ok(()),
     }
 }
-
-#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
-pub(crate) enum SortOptions {
-    NameAscending,
-    NameDescending,
-    DurationAscending,
-    DurationDescending,
-}
-
-impl Default for SortOptions {
-    fn default() -> Self {
-        Self::DurationDescending
-    }
-}

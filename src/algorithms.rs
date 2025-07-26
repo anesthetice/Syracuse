@@ -1,12 +1,7 @@
 #![allow(clippy::needless_range_loop)]
-use crate::config::Config;
 
 /// Returns a score from 0 to 1 depending on the local alignment of the two string sequences
-pub fn smith_waterman(seq_1: &str, seq_2: &str) -> f64 {
-    let match_score: i16 = Config::get().match_score;
-    let mismatch_penalty: i16 = Config::get().mismatch_penalty;
-    let gap_penalty: i16 = Config::get().gap_penalty;
-
+pub fn smith_waterman(seq_1: &str, seq_2: &str, match_score: i16, mismatch_penalty: i16, gap_penalty: i16) -> f64 {
     // initialization, seq_1 on the left and seq_2 on the top
     let seq_1: Vec<char> = seq_1.chars().collect();
     let seq_2: Vec<char> = seq_2.chars().collect();
@@ -73,11 +68,7 @@ pub fn smith_waterman(seq_1: &str, seq_2: &str) -> f64 {
 }
 
 /// Returns a score from -1 to 1 depending on the global alignment of the two string sequences
-pub fn needleman_wunsch(seq_1: &str, seq_2: &str) -> f64 {
-    let match_score: i16 = Config::get().match_score;
-    let mismatch_penalty: i16 = Config::get().mismatch_penalty;
-    let gap_penalty: i16 = Config::get().gap_penalty;
-
+pub fn needleman_wunsch(seq_1: &str, seq_2: &str, match_score: i16, mismatch_penalty: i16, gap_penalty: i16) -> f64 {
     // initialization, seq_1 on the left and seq_2 on the top
     let seq_1: Vec<char> = seq_1.chars().collect();
     let seq_2: Vec<char> = seq_2.chars().collect();

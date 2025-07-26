@@ -2,7 +2,6 @@ use super::{
     Entries, Entry,
     syrtime::{SyrDate, SyrSpan},
 };
-use crate::config::Config;
 use color_eyre::{Result, eyre::bail};
 use itertools::Itertools;
 use plotters::prelude::*;
@@ -12,7 +11,7 @@ trait GraphMethods {
     fn get_points(&self, dates: &[SyrDate]) -> Vec<(f64, f64)>;
 }
 
-impl GraphMethods for Entry {
+impl<const I: bool> GraphMethods for Entry<I> {
     fn get_points(&self, dates: &[SyrDate]) -> Vec<(f64, f64)> {
         dates
             .iter()
@@ -43,7 +42,12 @@ pub fn graph(entries: Entries, date_span: SyrSpan) -> Result<()> {
     let fine_grid_rgb = rgb_translate(Config::get().graph_fine_grid_rgb);
     let marker_size = Config::get().graph_marker_size;
 
-    let marker_color_wheel: Vec<RGBColor> = Config::get().graph_marker_rgb.clone().into_iter().map(rgb_translate).collect();
+    let marker_color_wheel: Vec<RGBColor> = Config::get()
+        .graph_marker_rgb
+        .clone()
+        .into_iter()
+        .map(rgb_translate)
+        .collect();
     let mcw_len = marker_color_wheel.len();
     let mut mcw_idx: usize = 0;
 
@@ -57,7 +61,10 @@ pub fn graph(entries: Entries, date_span: SyrSpan) -> Result<()> {
         bail!("At minimum, a span of three days is required to build a graph");
     }
 
-    let mut superpoints: Vec<(String, Vec<(f64, f64)>)> = entries.iter().map(|entry| (entry.name.clone(), entry.get_points(&dates))).collect();
+    let mut superpoints: Vec<(String, Vec<(f64, f64)>)> = entries
+        .iter()
+        .map(|entry| (entry.name.clone(), entry.get_points(&dates)))
+        .collect();
 
     let mut sum_points: Vec<(f64, f64)> = superpoints[0].1.clone();
     for (_, points) in superpoints.iter().skip(1) {
@@ -199,7 +206,9 @@ pub fn graph(entries: Entries, date_span: SyrSpan) -> Result<()> {
     }
 
     if !superpoints.is_empty() {
-        eprintln!("Warning: Failed to graph every single entry, consider adding more colors in the config or narrowing the date span");
+        eprintln!(
+            "Warning: Failed to graph every single entry, consider adding more colors in the config or narrowing the date span"
+        );
     }
 
     ctx.configure_series_labels()
