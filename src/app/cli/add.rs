@@ -15,27 +15,32 @@ pub(super) fn subcommand() -> Command {
             )
 }
 
-pub fn process(arg_matches: &ArgMatches, entries: &Entries) -> Result<()> {
-    let names = arg_matches
-        .get_many::<String>("entry")
-        .ok_or_eyre("Failed to parse entry/entries to string/strings")?;
-    let mut names: Vec<String> = names.map(|s| s.to_uppercase()).collect();
+impl App {
+    pub(in crate::app) fn process_add(&self, arg_matches: &ArgMatches) -> Result<()> {
+        let mut names = arg_matches
+            .get_many::<&str>("entry")
+            .ok_or_eyre("Failed to parse entry/entries to string/strings")?
+            .copied()
+            .map(str::to_uppercase)
+            .collect_vec();
 
-    let separator = Entry::SEPARATOR;
+        let separator = IEntry::SEPARATOR;
 
-    if names.iter().any(|name| name.contains(separator)) {
-        bail!("Failed to add new entry, one of the names conflicts with the separator '{separator}'",);
+        if names.iter().any(|name| name.contains(separator)) {
+            bail!("Failed to add new entry, one of the names conflicts with the separator `{separator}`",);
+        }
+
+        if self
+            .get_anyentries()
+            .iter()
+            .any(|entry| names.iter().any(|name| entry.is_new_entry_name_valid(name)))
+        {
+            bail!("Failed to add new entry, one of the names conflicts with an existing entry");
+        }
+
+        let entry = IEntry::create(names.remove(0), names);
+        entry.save()?;
+        println!("{} Added '{}'", ARROW.green(), entry);
+        Ok(())
     }
-
-    if entries
-        .iter()
-        .any(|entry| names.iter().any(|name| entry.is_new_entry_name_valid(name)))
-    {
-        bail!("Failed to add new entry, one of the names conflicts with an existing entry.");
-    }
-
-    let entry = Entry::create(names.remove(0), names);
-    entry.save()?;
-    println!("{} Added '{}'", ARROW.green(), entry);
-    Ok(())
 }

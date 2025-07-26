@@ -1,5 +1,6 @@
 // Modules
 mod add;
+/*
 mod backup;
 mod check_in;
 mod check_out;
@@ -16,15 +17,12 @@ mod unindex;
 mod update_add;
 mod update_sub;
 mod week;
-
+*/
 // Imports
+use super::App;
 use crate::{
-    animation, config,
-    data::{
-        Entries, Entry, IndexOptions,
-        syrtime::{SyrDate, SyrSpan, TimeFormatting, WeekdayFormatting},
-    },
-    dirs::Dirs,
+    animation,
+    data::{Entries, Entry, EntryCore, IEntry, IndexOptions, SyrDate, SyrSpan, TimeFormatting, UEntry, WeekdayFormatting},
     utils::{ARROW, ARROWHEAD, enter_clean_input_mode, exit_clean_input_mode},
 };
 use clap::{Arg, ArgAction, ArgGroup, ArgMatches, Command, value_parser};
@@ -45,6 +43,7 @@ use std::{
 pub fn build_cli() -> Command {
     Command::new("syr").subcommands([
         add::subcommand(),
+        /*
         list::subcommand(),
         remove::subcommand(),
         start::subcommand(),
@@ -61,9 +60,11 @@ pub fn build_cli() -> Command {
         check_out::subcommand(),
         week::subcommand(),
         gen_completions::subcommand(),
+        */
     ])
 }
 
+/*
 pub fn cli(entries: Entries, today: SyrDate, dt: DateTime) -> Result<()> {
     let command = build_cli();
 
@@ -90,3 +91,5 @@ pub fn cli(entries: Entries, today: SyrDate, dt: DateTime) -> Result<()> {
         _ => Ok(()),
     }
 }
+
+*/

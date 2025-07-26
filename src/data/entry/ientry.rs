@@ -1,4 +1,4 @@
-use crate::data::{Entry, EntryCore, SyrDate};
+use crate::data::{Entry, SyrDate};
 use color_eyre::{
     Result,
     eyre::{OptionExt, eyre},
@@ -47,7 +47,7 @@ impl IEntry {
     }
 
     pub fn get_dirname() -> &'static Path {
-        crate::dirs::Dirs::get().data_dir()
+        unimplemented!()
     }
 
     pub fn get_filestem(&self) -> String {

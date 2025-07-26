@@ -1,6 +1,8 @@
+mod anyentry;
 mod ientry;
 mod uentry;
 
+pub use anyentry::AnyEntry;
 pub use ientry::IEntry;
 pub use uentry::UEntry;
 
@@ -20,8 +22,6 @@ pub trait EntryCore {
     fn get_block_duration_opt(&self, date: &SyrDate) -> Option<f64>;
     fn print_name_and_first_alias(&self) -> String;
 }
-
-pub type EntryView = Box<dyn EntryCore>;
 
 impl<const I: bool> EntryCore for Entry<I> {
     fn is_new_entry_name_valid(&self, new_entry_name: &str) -> bool {
@@ -49,7 +49,6 @@ impl<const I: bool> EntryCore for Entry<I> {
 
 impl<const I: bool> Entry<I> {
     pub const SEPARATOR: &'static str = "⧿"; // Miny. Miscellaneous Mathematical Symbols-B, U+29FF
-    pub const UNINDEXED_FILE_STEM: &'static str = ".unindexed";
     pub const EXTENSION: &'static str = ".json";
 
     pub fn new(name: String, aliases: Vec<String>, blocs: Blocs) -> Self {

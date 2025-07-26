@@ -1,4 +1,4 @@
-use crate::{animation::AnimationBuilder, app::SortOptions, data::graphing::interpolation::InterpolationMethod};
+use crate::{animation::AnimationBuilder, app::SortOptions};
 use color_eyre::Result;
 use serde::{Deserialize, Serialize};
 use std::io::{Read, Write};
@@ -34,7 +34,7 @@ pub struct Config {
     /// Determines the directory where graphs are saved, an empty string defaults to current directory.
     pub graph_output_dir: String,
     /// Determines the interpolation method used, "Linear" and "Makima" are currently available.
-    pub graph_interpolation_method: InterpolationMethod,
+    //pub graph_interpolation_method: InterpolationMethod,
     /// Determines the number of points between a date and the next one that will be interpolated.
     pub graph_nb_interpolated_points: usize,
     /// Determines the marker size for entries.
@@ -73,7 +73,7 @@ impl Default for Config {
                 ("\\  ".to_string(), "  \\".to_string()),
             ],
             graph_output_dir: "".to_string(),
-            graph_interpolation_method: InterpolationMethod::Linear,
+            //graph_interpolation_method: InterpolationMethod::Linear,
             graph_nb_interpolated_points: 1500,
             graph_marker_size: 6,
             graph_background_rgb: (30, 30, 46),

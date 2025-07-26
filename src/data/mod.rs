@@ -1,11 +1,12 @@
 mod entries;
 mod entry;
-pub mod graphing;
+//mod graphing;
 mod syrtime;
 
 pub use entries::Entries;
 pub use entries::IEntries;
 pub use entries::UEntries;
+pub use entry::AnyEntry;
 pub use entry::Entry;
 pub use entry::EntryCore;
 pub use entry::IEntry;
