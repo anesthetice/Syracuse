@@ -7,35 +7,44 @@ pub(super) fn subcommand() -> Command {
         .arg(Arg::new("path").help("The path to back up to").index(1).action(ArgAction::Set))
 }
 
-pub fn process(arg_matches: &ArgMatches, entries: &Entries, dt: &DateTime) -> Result<()> {
-    let folder = format!(
-        "{:0>4}_{:0>2}_{:0>2}-{:0>2}_{:0>2}_{:0>2}/",
-        dt.year(),
-        dt.month(),
-        dt.day(),
-        dt.hour(),
-        dt.minute(),
-        dt.second(),
-    );
+impl App {
+    pub(in crate::app) fn process_backup(
+        &self,
+        arg_matches: &ArgMatches,
+        dt: &DateTime,
+    ) -> Result<()> {
+        let folder = format!(
+            "{:0>4}_{:0>2}_{:0>2}-{:0>2}_{:0>2}_{:0>2}/",
+            dt.year(),
+            dt.month(),
+            dt.day(),
+            dt.hour(),
+            dt.minute(),
+            dt.second(),
+        );
 
-    let path = match arg_matches.get_one::<String>("path") {
-        Some(string) => PathBuf::from(string),
-        None => PathBuf::from(config::Config::get().backup_path.as_str()),
-    }
-    .join(folder);
-
-    std::fs::create_dir(&path).wrap_err("Failed to create backup directory")?;
-
-    for entry in entries.iter() {
-        if let Err(error) = entry.save_to_file(&path.join(entry.get_filestem() + ".json")) {
-            eprintln!("Warning: Failed to back up an entry, '{error}'")
+        let backup_path = match arg_matches.get_one::<String>("path") {
+            Some(string) => PathBuf::from(string),
+            None => PathBuf::from(&self.config.backup_path),
         }
-    }
+        .join(folder);
 
-    println!(
-        "{} Created backup at '{}'",
-        ARROW.green(),
-        path.canonicalize().unwrap_or(path).display()
-    );
-    Ok(())
+        std::fs::create_dir(&backup_path).wrap_err("Failed to create backup directory")?;
+
+        for entry in self.ientries.iter() {
+            if let Err(error) = entry.save_to_file(&backup_path.join(entry.get_filename())) {
+                eprintln!("Warning: Failed to back up an entry, '{error}'")
+            }
+        }
+        if let Err(error) = self.uentries.save_to_default_file(self.dirs.data_dir()) {
+            eprintln!("Warning: Failed to back up the unindexed entries, '{error}'")
+        }
+
+        println!(
+            "{} Created backup at '{}'",
+            ARROW.green(),
+            backup_path.canonicalize().unwrap_or(backup_path).display()
+        );
+        Ok(())
+    }
 }

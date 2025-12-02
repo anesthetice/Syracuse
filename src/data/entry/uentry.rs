@@ -24,6 +24,10 @@ impl<'de> Deserialize<'de> for UEntry {
         D: Deserializer<'de>,
     {
         let (name, aliases, blocs) = <(String, Vec<String>, Blocs)>::deserialize(deserializer)?;
-        Ok(Entry { name, aliases, blocs })
+        Ok(Entry {
+            name,
+            aliases,
+            blocs,
+        })
     }
 }

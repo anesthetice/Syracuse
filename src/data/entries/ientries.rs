@@ -1,37 +1,25 @@
-use std::path::Path;
-
-use color_eyre::eyre;
-use itertools::Itertools;
-
-use crate::data::IEntry;
-
 use super::Entries;
+use crate::data::IEntry;
+use color_eyre::eyre;
+use std::path::Path;
 
 pub type IEntries = Entries<true>;
 
 impl IEntries {
-    pub fn load(path: &Path) -> eyre::Result<Self> {
-        Ok(std::fs::read_dir(path)?
+    pub fn load_from_path(path: &Path) -> eyre::Result<Self> {
+        std::fs::read_dir(path)?
             .filter_map(|res| {
-                let path = match res {
-                    Ok(e) => e.path(),
-                    Err(err) => {
-                        eprintln!("Warning: {}", err);
-                        return None;
-                    }
-                };
-                if path.extension()?.to_str()? != "json" {
-                    return None;
-                }
-                match IEntry::from_file(&path) {
-                    Ok(entry) => Some(entry),
-                    Err(error) => {
-                        eprintln!("Warning: {}", error);
-                        None
-                    }
+                if let Ok(filepath) = res
+                    .inspect_err(|err| eprintln!("Warning: {}", err))
+                    .map(|de| de.path())
+                    && filepath.extension()?.to_str()? == "json"
+                {
+                    Some(IEntry::load_from_file(&filepath))
+                } else {
+                    None
                 }
             })
-            .collect_vec()
-            .into())
+            .collect::<eyre::Result<Vec<IEntry>>>()
+            .map(Into::into)
     }
 }

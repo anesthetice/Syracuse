@@ -16,7 +16,9 @@ pub struct Entry<const I: bool> {
     pub blocs: Blocs,
 }
 
-pub trait EntryCore {
+pub trait EntryCore: Clone {
+    fn get_name(&self) -> &str;
+    fn get_aliases(&self) -> &[String];
     fn is_new_entry_name_valid(&self, new_entry_name: &str) -> bool;
     fn get_bloc_duration(&self, date: &SyrDate) -> f64;
     fn get_block_duration_opt(&self, date: &SyrDate) -> Option<f64>;
@@ -24,6 +26,14 @@ pub trait EntryCore {
 }
 
 impl<const I: bool> EntryCore for Entry<I> {
+    fn get_name(&self) -> &str {
+        &self.name
+    }
+
+    fn get_aliases(&self) -> &[String] {
+        &self.aliases
+    }
+
     fn is_new_entry_name_valid(&self, new_entry_name: &str) -> bool {
         self.aliases
             .iter()
@@ -48,11 +58,12 @@ impl<const I: bool> EntryCore for Entry<I> {
 }
 
 impl<const I: bool> Entry<I> {
-    pub const SEPARATOR: &'static str = "⧿"; // Miny. Miscellaneous Mathematical Symbols-B, U+29FF
-    pub const EXTENSION: &'static str = ".json";
-
     pub fn new(name: String, aliases: Vec<String>, blocs: Blocs) -> Self {
-        Self { name, aliases, blocs }
+        Self {
+            name,
+            aliases,
+            blocs,
+        }
     }
 
     pub fn create(name: String, aliases: Vec<String>) -> Self {
@@ -64,7 +75,13 @@ impl<const I: bool> std::fmt::Debug for Entry<I> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self.aliases.len() {
             0 => write!(f, "{}\n{}", self.name, self.blocs),
-            1.. => write!(f, "{}; {}\n{}", self.name, self.aliases.join(", ").dim(), self.blocs),
+            1.. => write!(
+                f,
+                "{}; {}\n{}",
+                self.name,
+                self.aliases.join(", ").dim(),
+                self.blocs
+            ),
         }
     }
 }

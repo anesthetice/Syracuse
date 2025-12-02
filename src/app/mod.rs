@@ -1,6 +1,7 @@
 // Modules
 mod cli;
 mod config;
+mod interaction;
 
 // Imports
 use crate::data::{AnyEntry, EntryCore, IEntries, IEntry, SyrDate, UEntries, UEntry};
@@ -9,12 +10,14 @@ use color_eyre::eyre::{self, Context, OptionExt};
 use config::Config;
 use directories::ProjectDirs;
 use itertools::Itertools;
+use jiff::civil::DateTime;
 use serde::{Deserialize, Serialize};
 
 pub struct App {
     ientries: IEntries,
     uentries: UEntries,
     date: SyrDate,
+    datetime: DateTime,
     config: Config,
     dirs: ProjectDirs,
 }
@@ -27,36 +30,57 @@ impl App {
     const NAME: &'static str = "syracuse-dev";
 
     pub fn load() -> eyre::Result<Self> {
-        let dirs = ProjectDirs::from("", "", Self::NAME).ok_or_eyre("Failed to get project directories")?;
+        let dirs = ProjectDirs::from("", "", Self::NAME)
+            .ok_or_eyre("Failed to get project directories")?;
 
         let _conf_dir = dirs.config_dir();
         if !_conf_dir.exists() {
-            std::fs::create_dir_all(_conf_dir)
-                .wrap_err_with(|| format!("Failed to create the config directory at `{}`", _conf_dir.display()))?;
+            std::fs::create_dir_all(_conf_dir).wrap_err_with(|| {
+                format!(
+                    "Failed to create the config directory at `{}`",
+                    _conf_dir.display()
+                )
+            })?;
         }
         let _data_dir = dirs.data_dir();
         if !_data_dir.exists() {
-            std::fs::create_dir_all(_data_dir.join("indexed"))
-                .wrap_err_with(|| format!("Failed to create the data directory at `{}`", _data_dir.display()))?;
+            std::fs::create_dir_all(_data_dir.join("indexed")).wrap_err_with(|| {
+                format!(
+                    "Failed to create the data directory at `{}`",
+                    _data_dir.display()
+                )
+            })?;
         }
 
         let config = config::Config::load(&_conf_dir.join("syracuse.conf"));
 
-        let date: SyrDate = {
-            let datetime = jiff::Zoned::now().datetime();
-            if datetime.time().hour() < config.night_owl_hour_extension {
-                datetime.date().yesterday()?.into()
-            } else {
-                datetime.date().into()
-            }
+        let datetime = jiff::Zoned::now().datetime();
+
+        let date: SyrDate = if datetime.time().hour() < config.night_owl_hour_extension {
+            datetime.date().yesterday()?.into()
+        } else {
+            datetime.date().into()
         };
 
-        let ientries = IEntries::load(&_data_dir.join("indexed"))?;
-        let uentries = UEntries::load(&_data_dir.join("unindexed.json"))?;
+        let ientries: IEntries = IEntries::load_from_path(_data_dir)?;
+
+        let uentries: UEntries = match UEntries::load_from_default_file(_data_dir) {
+            Ok(uentries) => uentries,
+            Err(err) => {
+                if let Some(io_error) = err.downcast_ref::<std::io::Error>()
+                    && io_error.kind() == std::io::ErrorKind::NotFound
+                {
+                    UEntries::new_empty()
+                } else {
+                    return Err(err);
+                }
+            }
+        };
 
         Ok(Self {
             ientries,
             uentries,
+            datetime,
             date,
             config,
             dirs,
@@ -76,6 +100,9 @@ impl App {
 
         match arg_matches.subcommand() {
             Some(("add", arg_matches)) => self.process_add(arg_matches),
+            Some(("backup", arg_matches)) => self.process_backup(arg_matches, &self.datetime),
+            Some(("check-in", arg_matches)) => self.process_check_in(arg_matches),
+            Some(("check-out", arg_matches)) => self.process_check_out(arg_matches, &self.date),
             /*
             Some(("list", arg_matches)) => list::process(arg_matches, &entries),
             Some(("remove", arg_matches)) => remove::process(arg_matches, &entries),
@@ -83,14 +110,12 @@ impl App {
             Some(("update-add", arg_matches)) => update_add::process(arg_matches, &entries, &today),
             Some(("update-sub", arg_matches)) => update_sub::process(arg_matches, &entries, &today),
             Some(("today", arg_matches)) => today::process(arg_matches, &entries, &today),
-            Some(("backup", arg_matches)) => backup::process(arg_matches, &entries, &dt),
             Some(("unindex", arg_matches)) => unindex::process(arg_matches, &entries),
             Some(("reindex", arg_matches)) => reindex::process(arg_matches, &entries),
             Some(("sum", arg_matches)) => sum::process(arg_matches, &entries, &today),
             Some(("prune", arg_matches)) => prune::process(arg_matches, entries),
             Some(("graph", arg_matches)) => graph::process(arg_matches, entries, &today),
-            Some(("check-in", arg_matches)) => check_in::process(arg_matches, &entries),
-            Some(("check-out", arg_matches)) => check_out::process(arg_matches, &entries, &today),
+
             Some(("week", arg_matches)) => week::process(arg_matches, &entries, &today),
             Some(("gen-completions", arg_matches)) => gen_completions::process(arg_matches),
             */

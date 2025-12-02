@@ -24,7 +24,10 @@ impl TimeFormatting for f64 {
         let seconds = (total_ms % 60_000) / 1000;
         let millis = total_ms % 1000;
 
-        format!("{:0>2}:{:0>2}:{:0>2}.{:0>3}", hours, minutes, seconds, millis)
+        format!(
+            "{:0>2}:{:0>2}:{:0>2}.{:0>3}",
+            hours, minutes, seconds, millis
+        )
     }
 }
 

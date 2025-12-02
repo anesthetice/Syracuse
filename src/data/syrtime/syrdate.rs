@@ -38,7 +38,9 @@ impl FromStr for SyrDate {
             .into_iter()
             .filter(|char| s.contains(*char))
             .nth(0)
-            .ok_or_eyre("Failed to parse date, no separator character detected, ('/', '.', '-', '_')")?;
+            .ok_or_eyre(
+                "Failed to parse date, no separator character detected, ('/', '.', '-', '_')",
+            )?;
         let input: Vec<&str> = s.split(split_char).collect();
         if input.len() != 3 {
             bail!(

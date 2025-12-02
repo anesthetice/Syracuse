@@ -1,8 +1,5 @@
-use crate::data::{Entry, SyrDate};
-use color_eyre::{
-    Result,
-    eyre::{OptionExt, eyre},
-};
+use crate::data::{Entry, SyrDate, UEntries};
+use color_eyre::eyre::{self, OptionExt, eyre};
 use itertools::Itertools;
 use std::{
     io::{Read, Write},
@@ -12,7 +9,10 @@ use std::{
 pub type IEntry = Entry<true>;
 
 impl IEntry {
-    pub fn from_file(filepath: &Path) -> Result<Self> {
+    pub const SEPARATOR: &'static str = "⧿"; // Miny. Miscellaneous Mathematical Symbols-B, U+29FF
+    pub const EXTENSION: &'static str = ".json";
+
+    pub fn load_from_file(filepath: &Path) -> eyre::Result<Self> {
         let mut file_name = filepath
             .file_stem()
             .ok_or_else(|| eyre!("Failed to obtain filestem of: '{}'", filepath.display()))?
@@ -27,7 +27,10 @@ impl IEntry {
         let (name, aliases): (String, Vec<String>) = match file_name.split_once(Self::SEPARATOR) {
             Some((name, aliases)) => (
                 name.to_string(),
-                aliases.split(Self::SEPARATOR).map(|s| s.to_string()).collect(),
+                aliases
+                    .split(Self::SEPARATOR)
+                    .map(|s| s.to_string())
+                    .collect(),
             ),
             None => (file_name.to_string(), Vec::new()),
         };
@@ -39,15 +42,7 @@ impl IEntry {
             .open(filepath)?
             .read_to_end(&mut buffer)?;
 
-        Ok(Self::new(
-            name,
-            aliases,
-            ijson::from_value(&serde_json::from_slice(&buffer)?)?,
-        ))
-    }
-
-    pub fn get_dirname() -> &'static Path {
-        unimplemented!()
+        Ok(Self::new(name, aliases, serde_json::from_slice(&buffer)?))
     }
 
     pub fn get_filestem(&self) -> String {
@@ -63,16 +58,16 @@ impl IEntry {
             + Self::EXTENSION
     }
 
-    pub fn get_filepath(&self) -> PathBuf {
-        Self::get_dirname().join(self.get_filename())
+    pub fn get_filepath(&self, data_dir: &Path) -> PathBuf {
+        data_dir.join(self.get_filename())
     }
 
-    pub fn save(&self) -> Result<()> {
-        self.save_to_file(&self.get_filepath())
+    pub fn save_to_default_file(&self, data_dir: &Path) -> eyre::Result<()> {
+        self.save_to_file(&self.get_filepath(data_dir))
     }
 
-    pub fn save_to_file(&self, filepath: &Path) -> Result<()> {
-        let data = serde_json::to_vec_pretty(&ijson::to_value(&self.blocs)?)?;
+    pub fn save_to_file(&self, filepath: &Path) -> eyre::Result<()> {
+        let data = serde_json::to_vec_pretty(&self.blocs)?;
 
         let mut file = std::fs::OpenOptions::new()
             .create(true)
@@ -86,8 +81,8 @@ impl IEntry {
         Ok(())
     }
 
-    pub fn delete(self) -> Result<()> {
-        std::fs::remove_file(self.get_filepath()).map_err(Into::into)
+    pub fn delete_default_file(&self, data_dir: &Path) -> eyre::Result<()> {
+        std::fs::remove_file(self.get_filepath(data_dir)).map_err(Into::into)
     }
 
     pub fn increase_bloc_duration(&mut self, date: &SyrDate, duration: f64) {
