@@ -72,7 +72,7 @@ impl App {
         entry.increase_bloc_duration(today, elapsed);
         println!(
             "{}\n{} {} {}",
-            entry.print_name_and_first_alias(),
+            entry.display(),
             past.s_str(),
             ARROW.green(),
             (past + elapsed).s_str(),

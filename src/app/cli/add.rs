@@ -41,7 +41,11 @@ impl App {
 
         let entry = IEntry::create(names.remove(0), names);
         entry.save_to_default_file(self.dirs.data_dir())?;
-        println!("{} Added '{}'", ARROW.green(), entry);
+        println!(
+            "{} Added '{}'",
+            ARROW.green(),
+            entry.display().all_aliases()
+        );
         Ok(())
     }
 }

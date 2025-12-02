@@ -2,13 +2,13 @@ use itertools::Itertools;
 
 use super::Entry;
 use super::EntryCore;
-use crate::data::{Blocs, SyrDate};
+use crate::data::{Blocks, SyrDate};
 
 #[derive(Clone)]
 pub struct AnyEntry<'a> {
     pub name: &'a str,
     pub aliases: &'a [String],
-    pub blocs: &'a Blocs,
+    pub blocks: &'a Blocks,
     pub indexed: bool,
 }
 
@@ -30,18 +30,15 @@ impl<'a> EntryCore for AnyEntry<'a> {
     }
 
     fn get_bloc_duration(&self, date: &SyrDate) -> f64 {
-        *self.blocs.get(date).unwrap_or(&0.0)
+        *self.blocks.get(date).unwrap_or(&0.0)
     }
 
     fn get_block_duration_opt(&self, date: &SyrDate) -> Option<f64> {
-        self.blocs.get(date).cloned()
+        self.blocks.get(date).cloned()
     }
 
-    fn print_name_and_first_alias(&self) -> String {
-        match self.aliases.first() {
-            Some(alias) => format!("{}; {}", self.name, alias),
-            None => self.name.to_string(),
-        }
+    fn display(&self) -> super::display::DisplayEntry {
+        self.into()
     }
 }
 
@@ -50,7 +47,7 @@ impl<'a, const I: bool> From<&'a Entry<I>> for AnyEntry<'a> {
         Self {
             name: value.name.as_str(),
             aliases: &value.aliases,
-            blocs: &value.blocs,
+            blocks: &value.blocks,
             indexed: I,
         }
     }

@@ -88,7 +88,7 @@ fn prompt_choose<T: EntryCore>(
 }
 
 fn prompt_choose_single<T: EntryCore>(entry: &T) -> Option<T> {
-    println!("{} [Y/n]", entry.print_name_and_first_alias());
+    println!("{} [Y/n]", entry.display());
     utils::enter_clean_input_mode();
     let option = loop {
         if !event::poll(std::time::Duration::from_millis(200)).unwrap_or_else(|err| {
@@ -130,7 +130,7 @@ fn prompt_choose_single<T: EntryCore>(entry: &T) -> Option<T> {
 
 fn prompt_choose_multiple<T: EntryCore>(entries: &[&T]) -> Option<T> {
     for (idx, &entry) in entries.iter().enumerate() {
-        println!("{}. {}", idx + 1, entry.print_name_and_first_alias());
+        println!("{}. {}", idx + 1, entry.display());
     }
     utils::enter_clean_input_mode();
     let option = loop {

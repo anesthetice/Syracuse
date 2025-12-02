@@ -50,10 +50,10 @@ pub fn build_cli() -> Command {
     Command::new("syr").subcommands([
         check_in::subcommand(),
         check_out::subcommand(),
-        update_add::subcommand(),
-        update_sub::subcommand(),
+        //update_add::subcommand(),
+        //update_sub::subcommand(),
         add::subcommand(),
-        //list::subcommand(),
+        list::subcommand(),
         //remove::subcommand(),
         //start::subcommand(),
 

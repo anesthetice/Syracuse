@@ -103,8 +103,8 @@ impl App {
             Some(("backup", arg_matches)) => self.process_backup(arg_matches, &self.datetime),
             Some(("check-in", arg_matches)) => self.process_check_in(arg_matches),
             Some(("check-out", arg_matches)) => self.process_check_out(arg_matches, &self.date),
+            Some(("list", arg_matches)) => self.process_list(arg_matches),
             /*
-            Some(("list", arg_matches)) => list::process(arg_matches, &entries),
             Some(("remove", arg_matches)) => remove::process(arg_matches, &entries),
             Some(("start", arg_matches)) => start::process(arg_matches, &entries, &today),
             Some(("update-add", arg_matches)) => update_add::process(arg_matches, &entries, &today),

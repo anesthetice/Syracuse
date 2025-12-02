@@ -4,22 +4,22 @@ use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
 #[derive(Clone, Default, Serialize, Deserialize)]
-pub struct Blocs(pub BTreeMap<SyrDate, f64>);
+pub struct Blocks(pub BTreeMap<SyrDate, f64>);
 
-impl std::ops::Deref for Blocs {
+impl std::ops::Deref for Blocks {
     type Target = BTreeMap<SyrDate, f64>;
     fn deref(&self) -> &Self::Target {
         &self.0
     }
 }
 
-impl std::ops::DerefMut for Blocs {
+impl std::ops::DerefMut for Blocks {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.0
     }
 }
 
-impl std::fmt::Display for Blocs {
+impl std::fmt::Display for Blocks {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,

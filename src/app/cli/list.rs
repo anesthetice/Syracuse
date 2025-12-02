@@ -2,7 +2,7 @@ use super::*;
 
 pub(super) fn subcommand() -> Command {
     Command::new("list")
-        .alias("ls")
+        .visible_alias("ls")
         .about("List out stored entries")
         .long_about("This subcommand is used to list out stored entries\naliases: 'ls'")
         .arg(
@@ -35,27 +35,29 @@ pub(super) fn subcommand() -> Command {
 }
 
 impl App {
-    pub(in crate::app) fn process_check_out(&self, arg_matches: &ArgMatches) -> Result<()> {
-        let entries: Vec<&Entry> = match (
-            arg_matches.get_flag("indexed"),
-            arg_matches.get_flag("unindexed"),
-        ) {
-            (true, true) => entries.iter().collect(),
-            (true, false) | (false, false) => {
-                entries.iter().filter(|entry| entry.indexed).collect()
-            }
-            (false, true) => entries.iter().filter(|entry| !entry.indexed).collect(),
-        };
-
-        if arg_matches.get_flag("extra") {
-            for entry in entries.iter() {
-                println!("• {:?}", entry)
-            }
-        } else {
-            for entry in entries.iter() {
-                println!("• {}", entry)
-            }
+    pub(in crate::app) fn process_list(&self, arg_matches: &ArgMatches) -> Result<()> {
+        let mut i_flag = arg_matches.get_flag("indexed");
+        let u_flag = arg_matches.get_flag("unindexed");
+        if !i_flag && !u_flag {
+            i_flag = true;
         }
+
+        let extra_flag = arg_matches.get_flag("extra");
+
+        self.get_anyentries()
+            .into_iter()
+            .filter(|ae| (ae.indexed && i_flag) || (!ae.indexed && u_flag))
+            .for_each(|entry| {
+                println!(
+                    "• {}",
+                    if !extra_flag {
+                        entry.display()
+                    } else {
+                        entry.display().show_blocks()
+                    }
+                )
+            });
+
         Ok(())
     }
 }

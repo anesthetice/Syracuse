@@ -67,7 +67,7 @@ impl IEntry {
     }
 
     pub fn save_to_file(&self, filepath: &Path) -> eyre::Result<()> {
-        let data = serde_json::to_vec_pretty(&self.blocs)?;
+        let data = serde_json::to_vec_pretty(&self.blocks)?;
 
         let mut file = std::fs::OpenOptions::new()
             .create(true)
@@ -86,16 +86,16 @@ impl IEntry {
     }
 
     pub fn increase_bloc_duration(&mut self, date: &SyrDate, duration: f64) {
-        if let Some(val) = self.blocs.get_mut(date) {
+        if let Some(val) = self.blocks.get_mut(date) {
             *val += duration
         } else {
-            self.blocs.insert(*date, duration);
+            self.blocks.insert(*date, duration);
         }
     }
 
     pub fn decrease_bloc_duration(&mut self, date: &SyrDate, duration: f64) {
         let mut delete_bloc: bool = false;
-        if let Some(val) = self.blocs.get_mut(date) {
+        if let Some(val) = self.blocks.get_mut(date) {
             if duration > *val {
                 delete_bloc = true;
             } else {
@@ -103,13 +103,13 @@ impl IEntry {
             }
         }
         if delete_bloc {
-            self.blocs.remove(date);
+            self.blocks.remove(date);
         }
     }
 }
 
 impl From<Entry<false>> for Entry<true> {
     fn from(value: Entry<false>) -> Self {
-        Self::new(value.name, value.aliases, value.blocs)
+        Self::new(value.name, value.aliases, value.blocks)
     }
 }

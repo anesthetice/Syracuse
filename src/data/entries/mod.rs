@@ -9,7 +9,6 @@ pub use uentries::UEntries;
 use super::Entry;
 use std::slice::{Iter, IterMut};
 
-#[derive(Debug)]
 pub struct Entries<const I: bool>(pub Vec<Entry<I>>);
 
 impl<const I: bool> Entries<I> {

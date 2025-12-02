@@ -17,7 +17,7 @@ impl<const I: bool> GraphMethods for Entry<I> {
             .iter()
             .enumerate()
             .map(|(idx, date)| {
-                match self.blocs.get(date) {
+                match self.blocks.get(date) {
                     Some(secs) => {
                         // idx + 1 since we pad our graph and 0 is not used
                         ((idx + 1) as f64, *secs / 3600.0)
@@ -313,7 +313,10 @@ pub mod interpolation {
                 let step_size = (x_ip1 - x_i) / nb_points as f64;
                 let mut x = x_i;
                 while x < x_ip1 {
-                    let y = a_i + b_i * (x - x_i) + c_i * (x - x_i) * (x - x_i) + d_i * (x - x_i) * (x - x_i) * (x - x_i);
+                    let y = a_i
+                        + b_i * (x - x_i)
+                        + c_i * (x - x_i) * (x - x_i)
+                        + d_i * (x - x_i) * (x - x_i) * (x - x_i);
                     local_points.push((x, if y < 0.0 { 0.0 } else { y }));
                     x += step_size;
                 }

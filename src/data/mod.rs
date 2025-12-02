@@ -12,7 +12,7 @@ pub use entry::EntryCore;
 pub use entry::IEntry;
 pub use entry::UEntry;
 
-pub use syrtime::Blocs;
+pub use syrtime::Blocks;
 pub use syrtime::SyrDate;
 pub use syrtime::SyrSpan;
 pub use syrtime::{TimeFormatting, WeekdayFormatting};
