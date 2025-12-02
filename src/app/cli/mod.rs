@@ -3,10 +3,9 @@ mod add;
 mod backup;
 mod check_in;
 mod check_out;
-/*
-mod gen_completions;
-mod graph;
 mod list;
+/*
+mod misc;
 mod prune;
 mod reindex;
 mod remove;
@@ -51,12 +50,13 @@ pub fn build_cli() -> Command {
     Command::new("syr").subcommands([
         check_in::subcommand(),
         check_out::subcommand(),
+        update_add::subcommand(),
+        update_sub::subcommand(),
         add::subcommand(),
         //list::subcommand(),
         //remove::subcommand(),
         //start::subcommand(),
-        //update_add::subcommand(),
-        //update_sub::subcommand(),
+
         //today::subcommand(),
         backup::subcommand(),
         //unindex::subcommand(),

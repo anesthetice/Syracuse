@@ -34,21 +34,28 @@ pub(super) fn subcommand() -> Command {
         )
 }
 
-pub fn process(arg_matches: &ArgMatches, entries: &Entries) -> Result<()> {
-    let entries: Vec<&Entry> = match (arg_matches.get_flag("indexed"), arg_matches.get_flag("unindexed")) {
-        (true, true) => entries.iter().collect(),
-        (true, false) | (false, false) => entries.iter().filter(|entry| entry.indexed).collect(),
-        (false, true) => entries.iter().filter(|entry| !entry.indexed).collect(),
-    };
+impl App {
+    pub(in crate::app) fn process_check_out(&self, arg_matches: &ArgMatches) -> Result<()> {
+        let entries: Vec<&Entry> = match (
+            arg_matches.get_flag("indexed"),
+            arg_matches.get_flag("unindexed"),
+        ) {
+            (true, true) => entries.iter().collect(),
+            (true, false) | (false, false) => {
+                entries.iter().filter(|entry| entry.indexed).collect()
+            }
+            (false, true) => entries.iter().filter(|entry| !entry.indexed).collect(),
+        };
 
-    if arg_matches.get_flag("extra") {
-        for entry in entries.iter() {
-            println!("• {:?}", entry)
+        if arg_matches.get_flag("extra") {
+            for entry in entries.iter() {
+                println!("• {:?}", entry)
+            }
+        } else {
+            for entry in entries.iter() {
+                println!("• {}", entry)
+            }
         }
-    } else {
-        for entry in entries.iter() {
-            println!("• {}", entry)
-        }
+        Ok(())
     }
-    Ok(())
 }

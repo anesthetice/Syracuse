@@ -2,9 +2,9 @@ use super::*;
 
 pub(super) fn subcommand() -> Command {
     Command::new("update-add")
-        .aliases(["upadd", "upincr", "upplus"])
+        .visible_aliases(["upadd", "upincr"])
         .about("Manually increase the time tracked by an entry")
-        .long_about("This subcommand is used to manually increase the time associated with an entry on a given day\naliases: 'upadd', 'upincr', 'upplus'")
+        .long_about("This subcommand is used to manually increase the time associated with an entry on a given day")
         .arg(
             Arg::new("entry")
                 .index(1)
@@ -59,33 +59,43 @@ pub(super) fn subcommand() -> Command {
         .group(ArgGroup::new("date-group").conflicts_with("days-back"))
 }
 
-pub fn process(arg_matches: &ArgMatches, entries: &Entries, today: &SyrDate) -> Result<()> {
-    let date = {
-        if let Some(days_back) = arg_matches.get_one::<usize>("days-back") {
-            today.saturating_sub(i64::try_from(*days_back)?.days()).into()
-        } else if let Some(date) = arg_matches.get_one::<SyrDate>("date") {
-            *date
-        } else {
-            *today
-        }
-    };
+impl App {
+    pub(in crate::app) fn process_update_add(&self, arg_matches: &ArgMatches) -> Result<()> {
+        let date = {
+            if let Some(days_back) = arg_matches.get_one::<usize>("days-back") {
+                today
+                    .saturating_sub(i64::try_from(*days_back)?.days())
+                    .into()
+            } else if let Some(date) = arg_matches.get_one::<SyrDate>("date") {
+                *date
+            } else {
+                *today
+            }
+        };
 
-    let name = arg_matches
-        .get_one::<String>("entry")
-        .ok_or_eyre("Failed to parse entry to string")?;
-    let Some(mut entry) = entries.choose(&name.to_uppercase(), IndexOptions::Indexed) else {
-        return Ok(());
-    };
+        let name = arg_matches
+            .get_one::<String>("entry")
+            .ok_or_eyre("Failed to parse entry to string")?;
+        let Some(mut entry) = entries.choose(&name.to_uppercase(), IndexOptions::Indexed) else {
+            return Ok(());
+        };
 
-    let hour_diff: f64 = *arg_matches.get_one::<f64>("hours").unwrap_or(&0.0);
-    let minute_diff: f64 = *arg_matches.get_one::<f64>("minutes").unwrap_or(&0.0);
-    let second_diff: f64 = *arg_matches.get_one::<f64>("seconds").unwrap_or(&0.0);
-    let total_diff: f64 = hour_diff * 3600.0 + minute_diff * 60.0 + second_diff;
+        let hour_diff: f64 = *arg_matches.get_one::<f64>("hours").unwrap_or(&0.0);
+        let minute_diff: f64 = *arg_matches.get_one::<f64>("minutes").unwrap_or(&0.0);
+        let second_diff: f64 = *arg_matches.get_one::<f64>("seconds").unwrap_or(&0.0);
+        let total_diff: f64 = hour_diff * 3600.0 + minute_diff * 60.0 + second_diff;
 
-    let past = entry.get_bloc_duration(&date);
-    entry.increase_bloc_duration(&date, total_diff);
-    entry.save()?;
-    println!("{} | {} {} {}", &date, past.s_str(), ARROW.green(), (past + total_diff).s_str());
+        let past = entry.get_bloc_duration(&date);
+        entry.increase_bloc_duration(&date, total_diff);
+        entry.save()?;
+        println!(
+            "{} | {} {} {}",
+            &date,
+            past.s_str(),
+            ARROW.green(),
+            (past + total_diff).s_str()
+        );
 
-    Ok(())
+        Ok(())
+    }
 }

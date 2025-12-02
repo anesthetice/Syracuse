@@ -9,6 +9,7 @@ pub struct AnyEntry<'a> {
     pub name: &'a str,
     pub aliases: &'a [String],
     pub blocs: &'a Blocs,
+    pub indexed: bool,
 }
 
 impl<'a> EntryCore for AnyEntry<'a> {
@@ -50,6 +51,7 @@ impl<'a, const I: bool> From<&'a Entry<I>> for AnyEntry<'a> {
             name: value.name.as_str(),
             aliases: &value.aliases,
             blocs: &value.blocs,
+            indexed: I,
         }
     }
 }

@@ -1,7 +1,10 @@
+// Modules
 mod anyentry;
+mod display;
 mod ientry;
 mod uentry;
 
+// Re-exports
 pub use anyentry::AnyEntry;
 pub use ientry::IEntry;
 pub use uentry::UEntry;
